@@ -6,24 +6,23 @@
     <title>Leaflet Map with Location, Text Overlay, and Camera Button</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
     <style>
-        #map {
-            height: 500px;
-            width: 100%;
+        /* Ensure map and video fill the viewport */
+        #map, #videoElement {
+            height: 100vh; /* Adjust height to fill the viewport */
+            width: 100vw;  /* Adjust width to fill the viewport */
+            position: fixed; /* Ensure it's positioned correctly */
+            top: 0;
+            left: 0;
+            margin: 0;
+            padding: 0;
+            z-index: 1; /* Ensure it's below the buttons */
         }
-        .custom-text {
-            font-size: 24px;
-            font-weight: bold;
-            color: #333;
-            background-color: rgba(255, 255, 255, 0.8);
-            padding: 10px;
-            border-radius: 5px;
-            box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
-        }
+
         #openCameraButton, #backToMapButton {
             position: fixed;
             bottom: 20px;
             right: 20px;
-            z-index: 1000;
+            z-index: 1000; /* Ensure buttons are above the map and video */
             padding: 10px 20px;
             font-size: 16px;
             background-color: #007bff;
@@ -78,7 +77,8 @@
         var openCameraButton = document.getElementById('openCameraButton');
         var backToMapButton = document.getElementById('backToMapButton');
         var mapContainer = document.getElementById('map');
-        var video;
+        var videoElement;
+        var videoStream;
 
         openCameraButton.addEventListener('click', function() {
             navigator.mediaDevices.getUserMedia({
@@ -87,15 +87,22 @@
                 }
             })
             .then(function(stream) {
-                video = document.createElement('video');
-                video.srcObject = stream;
-                video.autoplay = true;
+                if (videoElement) {
+                    document.body.removeChild(videoElement); // Remove existing video element if any
+                }
+
+                videoElement = document.createElement('video');
+                videoElement.id = 'videoElement';
+                videoElement.srcObject = stream;
+                videoElement.autoplay = true;
 
                 mapContainer.style.display = 'none';
-                document.body.appendChild(video);
+                document.body.appendChild(videoElement);
 
                 openCameraButton.style.display = 'none';
                 backToMapButton.style.display = 'block';
+
+                videoStream = stream; // Store the stream for later use
             })
             .catch(function(error) {
                 if (error.name === 'NotAllowedError') {
@@ -110,17 +117,18 @@
         });
 
         backToMapButton.addEventListener('click', function() {
-            if (video) {
-                video.pause();
-                let tracks = video.srcObject.getTracks();
-                tracks.forEach(track => track.stop());
-                video.srcObject = null;
-                document.body.removeChild(video);
-                video = null;
+            if (videoStream) {
+                videoStream.getTracks().forEach(track => track.stop()); // Stop all video tracks
+                videoStream = null;
+            }
+
+            if (videoElement) {
+                document.body.removeChild(videoElement); // Remove video element
+                videoElement = null;
             }
 
             mapContainer.style.display = 'block';
-            map.invalidateSize();
+            map.invalidateSize(); // Recalculate map size
 
             openCameraButton.style.display = 'block';
             backToMapButton.style.display = 'none';
