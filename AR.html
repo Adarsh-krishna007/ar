@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Leaflet Map with Location, Text Overlay, and Camera Button</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
     <style>
@@ -19,12 +19,6 @@
             border-radius: 5px;
             box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
         }
-
-            @media (max-width: 768px) {
-            #map {
-            height: 300px;
-            }
-        }
         #openCameraButton, #backToMapButton {
             position: fixed;
             bottom: 20px;
@@ -37,9 +31,7 @@
             border: none;
             border-radius: 5px;
             cursor: pointer;
-        }   
-
-
+        }
     </style>
 </head>
 <body>
@@ -89,34 +81,50 @@
         var video;
 
         openCameraButton.addEventListener('click', function() {
-        navigator.mediaDevices.getUserMedia({
-            video: {
-                facingMode: { exact: "environment" } // Request the back camera
-            }
-        })
-        .then(function(stream) {
-            video = document.createElement('video');
-            video.srcObject = stream;
-            video.autoplay = true;
+            navigator.mediaDevices.getUserMedia({
+                video: {
+                    facingMode: { exact: "environment" } // Request the back camera
+                }
+            })
+            .then(function(stream) {
+                video = document.createElement('video');
+                video.srcObject = stream;
+                video.autoplay = true;
 
-            mapContainer.style.display = 'none';
-            document.body.appendChild(video);
+                mapContainer.style.display = 'none';
+                document.body.appendChild(video);
 
-            openCameraButton.style.display = 'none';
-            backToMapButton.style.display = 'block';
-        })
-        .catch(function(error) {
-            if (error.name === 'NotAllowedError') {
-                alert('Camera access denied. Please enable camera permissions in your browser settings.');
-            } else if (error.name === 'NotFoundError') {
-                alert('No camera device found.');
-            } else {
-                alert('An error occurred while accessing the camera: ' + error.message);
-            }
-            console.error('Error accessing camera:', error);
+                openCameraButton.style.display = 'none';
+                backToMapButton.style.display = 'block';
+            })
+            .catch(function(error) {
+                if (error.name === 'NotAllowedError') {
+                    alert('Camera access denied. Please enable camera permissions in your browser settings.');
+                } else if (error.name === 'NotFoundError') {
+                    alert('No camera device found.');
+                } else {
+                    alert('An error occurred while accessing the camera: ' + error.message);
+                }
+                console.error('Error accessing camera:', error);
+            });
         });
-    });
 
+        backToMapButton.addEventListener('click', function() {
+            if (video) {
+                video.pause();
+                let tracks = video.srcObject.getTracks();
+                tracks.forEach(track => track.stop());
+                video.srcObject = null;
+                document.body.removeChild(video);
+                video = null;
+            }
+
+            mapContainer.style.display = 'block';
+            map.invalidateSize();
+
+            openCameraButton.style.display = 'block';
+            backToMapButton.style.display = 'none';
+        });
     </script>
 </body>
 </html>
