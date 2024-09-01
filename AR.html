@@ -56,7 +56,6 @@
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script>
         var map = L.map('map').setView([51.505, -0.09], 13);
-        var userLocation = null;
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
@@ -66,11 +65,6 @@
         map.locate({ setView: true, maxZoom: 18 });
 
         map.on('locationfound', function(e) {
-            userLocation = {
-                lat: e.latlng.lat,
-                lng: e.latlng.lng,
-                accuracy: e.accuracy
-            };
             var radius = e.accuracy / 2;
 
             L.marker(e.latlng).addTo(map)
@@ -95,6 +89,7 @@
 
         var openCameraButton = document.getElementById('openCameraButton');
         var backToMapButton = document.getElementById('backToMapButton');
+        var mapContainer = document.getElementById('map');
         var videoElement;
         var videoStream;
 
@@ -103,6 +98,26 @@
             msg.lang = 'en-US';
             window.speechSynthesis.speak(msg);
         }
+
+        var recognition = new webkitSpeechRecognition();
+        recognition.lang = 'en-US'; // Set the language to English (US)
+
+        recognition.onresult = function(event) {
+            var spokenText = event.results[0][0].transcript;
+
+            if (spokenText.toLowerCase() === 'where am i') {
+                // User spoke "where am i"
+                map.locate({
+                    setView: true,
+                    maxZoom: 16,
+                    enableHighAccuracy: true
+                });
+            }
+        };
+
+        recognition.onerror = function(event) {
+            console.error('Speech recognition error:', event);
+        };
 
         openCameraButton.addEventListener('click', function() {
             navigator.mediaDevices.getUserMedia({
@@ -124,7 +139,7 @@
 
                 var overlayImage = document.createElement('img');
                 overlayImage.id = 'overlayImage';
-                overlayImage.src = 'mascot.png'; 
+                overlayImage.src = 'mascot.png';
 
                 mapContainer.style.display = 'none';
                 document.body.appendChild(videoElement);
@@ -134,6 +149,8 @@
                 backToMapButton.style.display = 'block';
 
                 videoStream = stream;
+
+                recognition.start();
             })
             .catch(function(error) {
                 if (error.name === 'NotAllowedError') {
@@ -169,39 +186,6 @@
             openCameraButton.style.display = 'block';
             backToMapButton.style.display = 'none';
         });
-
-        // Speech Recognition
-        if ('webkitSpeechRecognition' in window) {
-            var recognition = new webkitSpeechRecognition();
-            recognition.continuous = false;
-            recognition.interimResults = false;
-            recognition.lang = 'en-US';
-
-            recognition.onresult = function(event) {
-                var command = event.results[0][0].transcript.toLowerCase();
-                console.log("User said: " + command);
-
-                if (command.includes('location')) {
-                    if (userLocation) {
-                        var details = `Current Location:
-                                        Latitude: ${userLocation.lat}
-                                        Longitude: ${userLocation.lng}
-                                        Accuracy: ${userLocation.accuracy} meters`;
-                        speak(details);
-                    } else {
-                        speak("Location not available. Please wait for the map to obtain your location.");
-                    }
-                }
-            };
-
-            recognition.onerror = function(event) {
-                console.error('Speech recognition error detected: ', event.error);
-            };
-
-            recognition.start();
-        } else {
-            alert("Speech Recognition API not supported in this browser.");
-        }
     </script>
 </body>
 </html>
