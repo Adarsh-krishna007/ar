@@ -17,7 +17,7 @@
             z-index: 1;
         }
 
-        #openCameraButton, #backToMapButton {
+        #openCameraButton, #backToMapButton, #speakButton {
             position: fixed;
             bottom: 20px;
             right: 20px;
@@ -29,6 +29,10 @@
             border: none;
             border-radius: 5px;
             cursor: pointer;
+        }
+
+        #speakButton {
+            right: 150px; /* Adjust position to avoid overlap with other buttons */
         }
 
         .custom-text {
@@ -52,6 +56,7 @@
     <div id="map"></div>
     <button id="openCameraButton">Open Camera</button>
     <button id="backToMapButton" style="display: none;">Back to Map</button>
+    <button id="speakButton">Speak</button>
 
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script>
@@ -89,6 +94,7 @@
 
         var openCameraButton = document.getElementById('openCameraButton');
         var backToMapButton = document.getElementById('backToMapButton');
+        var speakButton = document.getElementById('speakButton');
         var mapContainer = document.getElementById('map');
         var videoElement;
         var videoStream;
@@ -171,6 +177,11 @@
                     console.error('Error accessing camera:', error);
                 });
             });
+
+            speakButton.addEventListener('click', function() {
+                recognition.start();
+            });
+
         } else {
             console.warn('Speech recognition not supported in this browser.');
         }
