@@ -150,7 +150,7 @@
             if (overlayImage) {
                 mascotFrameIndex = 0;
                 overlayImage.src = mascotFrames[mascotFrameIndex];
-                overlayImage.style.display = 'block'; // Show the mascot image
+                overlayImage.style.display = 'block'; // Ensure the mascot image is visible
                 animationInterval = setInterval(() => {
                     mascotFrameIndex = (mascotFrameIndex + 1) % mascotFrames.length;
                     overlayImage.src = mascotFrames[mascotFrameIndex];
@@ -163,7 +163,7 @@
             if (overlayImage) {
                 clearInterval(animationInterval);
                 overlayImage.src = mascotFrames[0]; // Set to the first frame
-                overlayImage.style.display = 'none'; // Hide the mascot image
+                overlayImage.style.display = 'none'; // Hide the mascot image when not needed
             }
         }
 
@@ -231,6 +231,8 @@
                     overlayImage.id = 'overlayImage';
                     overlayImage.src = 'mascot.png';
                     document.body.appendChild(overlayImage);
+                } else {
+                    overlayImage.style.display = 'block'; // Ensure the mascot image is visible
                 }
 
                 mapContainer.style.display = 'none';
