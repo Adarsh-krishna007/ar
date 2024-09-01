@@ -62,8 +62,7 @@
 
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.0.0"></script>
-
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
     <script>
         const map = L.map('map').setView([51.505, -0.09], 13);
 
@@ -75,6 +74,7 @@
         let videoElement;
         let videoStream;
         let recognition;
+        let model;
         let mascotFrameIndex = 0;
         let animationInterval;
         const mascotFrames = [
@@ -84,13 +84,10 @@
             'mascot (4).png'
         ];
         let currentLocationName = 'Unknown location'; // Store location name
-        let model;
 
-        // Load Hugging Face model
         async function loadModel() {
-            const { ObjectDetection } = window.Transformers;
-            model = await ObjectDetection.fromPretrained('facebook/detr-resnet-50'); // Example model
-            console.log('Hugging Face model loaded.');
+            model = await cocoSsd.load();
+            console.log('Model loaded.');
         }
 
         loadModel();
@@ -254,64 +251,55 @@
             });
         });
 
-        async function detectMonumentAndDescribe() {
-            if (videoElement && model) {
-                const frame = captureFrame(videoElement);
-                
-                // Create ImageBitmap and Tensor
-                const base64Image = frame.toDataURL('image/jpeg').split(',')[1]; // Get base64 image data
-                const imgBlob = await fetch(`data:image/jpeg;base64,${base64Image}`).then(res => res.blob());
-                const img = await createImageBitmap(imgBlob);
-                const imgTensor = tf.browser.fromPixels(img);
-
-                // Perform object detection
-                const predictions = await model.detect(imgTensor);
+        scannerButton.addEventListener('click', async function() {
+            if (videoElement) {
+                const predictions = await detectObjects(videoElement);
 
                 if (predictions.length > 0) {
-                    const objectName = predictions[0].label; // Get the class of the first detected object
-                    const details = await fetchObjectDetails(objectName);
-                    speak(details);
+                    const details = predictions.map(pred => `Detected ${pred.class} with confidence ${Math.round(pred.score * 100)}%`).join(', ');
+                    speak(`The following objects were detected: ${details}`);
                 } else {
-                    speak('No monuments detected.');
+                    speak('No objects detected.');
                 }
             } else {
-                speak('No video feed available or model not loaded.');
+                speak('No video feed available.');
             }
+        });
+
+        async function detectObjects(video) {
+            const predictions = await model.detect(video);
+            return predictions;
         }
 
-        function captureFrame(video) {
-            const canvas = document.createElement('canvas');
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            return canvas;
-        }
-
-        async function fetchObjectDetails(objectName) {
-            const response = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${objectName}`);
-            const data = await response.json();
-            return data.extract || `No details found for ${objectName}.`;
-        }
-
-        scannerButton.addEventListener('click', detectMonumentAndDescribe);
+        speakButton.addEventListener('click', function() {
+            if (recognition) {
+                recognition.start();
+            }
+        });
 
         backToMapButton.addEventListener('click', function() {
+            if (videoStream) {
+                videoStream.getTracks().forEach(track => track.stop());
+                videoStream = null;
+            }
+
             if (videoElement) {
-                videoElement.srcObject.getTracks().forEach(track => track.stop());
                 document.body.removeChild(videoElement);
                 videoElement = null;
             }
 
+            const overlayImage = document.getElementById('overlayImage');
+            if (overlayImage) {
+                overlayImage.style.display = 'none'; // Hide mascot image when not needed
+            }
+
             mapContainer.style.display = 'block';
+            map.invalidateSize();
+
             openCameraButton.style.display = 'block';
             backToMapButton.style.display = 'none';
             speakButton.style.display = 'none';
             scannerButton.style.display = 'none'; // Hide Scanner button
-        });
-
-        speakButton.addEventListener('click', function() {
-            speak(`You are at ${currentLocationName}`);
         });
     </script>
 </body>
