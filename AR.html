@@ -97,17 +97,22 @@
             var msg = new SpeechSynthesisUtterance(text);
             msg.lang = 'en-US';
 
-            // Get the available voices
-            var voices = window.speechSynthesis.getVoices();
-            
-            // Find a male voice, or fallback to the first available voice if not found
-            var maleVoice = voices.find(voice => voice.name.toLowerCase().includes('male') || voice.name.includes('Google US English Male') || voice.name.includes('Microsoft David Desktop - English (United States)'));
-            
-            if (maleVoice) {
-                msg.voice = maleVoice;
-            }
+            // Ensure voices are loaded
+            window.speechSynthesis.onvoiceschanged = function() {
+                var voices = window.speechSynthesis.getVoices();
+                
+                // Find a male voice, or fallback to the first available voice if not found
+                var maleVoice = voices.find(voice => voice.name.toLowerCase().includes('male') || voice.name.includes('David') || voice.name.includes('Alex'));
+                
+                if (maleVoice) {
+                    msg.voice = maleVoice;
+                } else {
+                    // Fallback to the first available voice if no male voice found
+                    msg.voice = voices[0];
+                }
 
-            window.speechSynthesis.speak(msg);
+                window.speechSynthesis.speak(msg);
+            };
         }
 
         openCameraButton.addEventListener('click', function() {
