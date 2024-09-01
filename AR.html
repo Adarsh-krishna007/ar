@@ -6,23 +6,22 @@
     <title>Leaflet Map with Location, Text Overlay, and Camera Button</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
     <style>
-        /* Ensure map and video fill the viewport */
         #map, #videoElement {
-            height: 100vh; /* Adjust height to fill the viewport */
-            width: 100vw;  /* Adjust width to fill the viewport */
-            position: fixed; /* Ensure it's positioned correctly */
+            height: 100vh;
+            width: 100vw;
+            position: fixed;
             top: 0;
             left: 0;
             margin: 0;
             padding: 0;
-            z-index: 1; /* Ensure it's below the buttons */
+            z-index: 1;
         }
 
         #openCameraButton, #backToMapButton {
             position: fixed;
             bottom: 20px;
             right: 20px;
-            z-index: 1000; /* Ensure buttons are above the map and video */
+            z-index: 1000;
             padding: 10px 20px;
             font-size: 16px;
             background-color: #007bff;
@@ -30,6 +29,22 @@
             border: none;
             border-radius: 5px;
             cursor: pointer;
+        }
+
+        .custom-text {
+            background-color: white;
+            padding: 5px;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+
+        #overlayImage {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            z-index: 1000;
+            width: 100px;
+            height: 100px;
         }
     </style>
 </head>
@@ -40,7 +55,6 @@
 
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script>
-        // Initialize map
         var map = L.map('map').setView([51.505, -0.09], 13);
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -73,7 +87,6 @@
 
         customControl.addTo(map);
 
-        // Handle Camera and Map Toggle
         var openCameraButton = document.getElementById('openCameraButton');
         var backToMapButton = document.getElementById('backToMapButton');
         var mapContainer = document.getElementById('map');
@@ -83,12 +96,12 @@
         openCameraButton.addEventListener('click', function() {
             navigator.mediaDevices.getUserMedia({
                 video: {
-                    facingMode: { exact: "environment" } // Request the back camera
+                    facingMode: { exact: "environment" }
                 }
             })
             .then(function(stream) {
                 if (videoElement) {
-                    document.body.removeChild(videoElement); // Remove existing video element if any
+                    document.body.removeChild(videoElement);
                 }
 
                 videoElement = document.createElement('video');
@@ -96,13 +109,18 @@
                 videoElement.srcObject = stream;
                 videoElement.autoplay = true;
 
+                var overlayImage = document.createElement('img');
+                overlayImage.id = 'overlayImage';
+                overlayImage.src = 'mascot.png'; 
+
                 mapContainer.style.display = 'none';
                 document.body.appendChild(videoElement);
+                document.body.appendChild(overlayImage);
 
                 openCameraButton.style.display = 'none';
                 backToMapButton.style.display = 'block';
 
-                videoStream = stream; // Store the stream for later use
+                videoStream = stream;
             })
             .catch(function(error) {
                 if (error.name === 'NotAllowedError') {
@@ -118,17 +136,22 @@
 
         backToMapButton.addEventListener('click', function() {
             if (videoStream) {
-                videoStream.getTracks().forEach(track => track.stop()); // Stop all video tracks
+                videoStream.getTracks().forEach(track => track.stop());
                 videoStream = null;
             }
 
             if (videoElement) {
-                document.body.removeChild(videoElement); // Remove video element
+                document.body.removeChild(videoElement);
                 videoElement = null;
             }
 
+            var overlayImage = document.getElementById('overlayImage');
+            if (overlayImage) {
+                document.body.removeChild(overlayImage);
+            }
+
             mapContainer.style.display = 'block';
-            map.invalidateSize(); // Recalculate map size
+            map.invalidateSize();
 
             openCameraButton.style.display = 'block';
             backToMapButton.style.display = 'none';
