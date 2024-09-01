@@ -17,7 +17,7 @@
             z-index: 1;
         }
 
-        #openCameraButton, #backToMapButton, #speakButton {
+        #openCameraButton, #backToMapButton, #speakButton, #scannerButton {
             position: fixed;
             bottom: 20px;
             z-index: 1000;
@@ -32,6 +32,11 @@
 
         #speakButton {
             right: 150px; /* Adjust position to avoid overlap with other buttons */
+            display: none; /* Initially hidden */
+        }
+
+        #scannerButton {
+            right: 20px; /* Position near the bottom-right corner */
             display: none; /* Initially hidden */
         }
 
@@ -50,8 +55,11 @@
     <button id="openCameraButton" aria-label="Open Camera">Open Camera</button>
     <button id="backToMapButton" style="display: none;" aria-label="Back to Map">Back to Map</button>
     <button id="speakButton" aria-label="Speak">Speak</button>
+    <button id="scannerButton" aria-label="Scanner">Scanner</button>
 
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
     <script>
         const map = L.map('map').setView([51.505, -0.09], 13);
 
@@ -63,6 +71,14 @@
         let videoElement;
         let videoStream;
         let recognition;
+        let model;
+
+        async function loadModel() {
+            model = await cocoSsd.load();
+            console.log('Model loaded.');
+        }
+
+        loadModel();
 
         map.locate({ setView: true, maxZoom: 18 });
 
@@ -75,7 +91,6 @@
 
             L.circle(latlng, radius).addTo(map);
 
-            // Fetch location name using reverse geocoding
             fetchLocationName(latlng.lat, latlng.lng)
                 .then(locationName => {
                     const locationInfo = `You are at ${locationName}. Latitude: ${latlng.lat.toFixed(4)}, Longitude: ${latlng.lng.toFixed(4)}`;
@@ -145,6 +160,7 @@
         const openCameraButton = document.getElementById('openCameraButton');
         const backToMapButton = document.getElementById('backToMapButton');
         const speakButton = document.getElementById('speakButton');
+        const scannerButton = document.getElementById('scannerButton');
         const mapContainer = document.getElementById('map');
 
         openCameraButton.addEventListener('click', function() {
@@ -178,6 +194,7 @@
                 openCameraButton.style.display = 'none';
                 backToMapButton.style.display = 'block';
                 speakButton.style.display = 'block';
+                scannerButton.style.display = 'block'; // Show Scanner button
 
                 videoStream = stream;
             })
@@ -192,6 +209,26 @@
                 console.error('Error accessing camera:', error);
             });
         });
+
+        scannerButton.addEventListener('click', async function() {
+            if (videoElement) {
+                const predictions = await detectObjects(videoElement);
+
+                if (predictions.length > 0) {
+                    const details = predictions.map(pred => `Detected ${pred.class} with confidence ${Math.round(pred.score * 100)}%`).join(', ');
+                    speak(`The following objects were detected: ${details}`);
+                } else {
+                    speak('No objects detected.');
+                }
+            } else {
+                speak('No video feed available.');
+            }
+        });
+
+        async function detectObjects(video) {
+            const predictions = await model.detect(video);
+            return predictions;
+        }
 
         speakButton.addEventListener('click', function() {
             if (recognition) {
@@ -221,6 +258,7 @@
             openCameraButton.style.display = 'block';
             backToMapButton.style.display = 'none';
             speakButton.style.display = 'none';
+            scannerButton.style.display = 'none'; // Hide Scanner button
         });
     </script>
 </body>
