@@ -6,14 +6,6 @@
     <title>TRAVEL-MIND</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
     <style>
-        @keyframes frameAnimation {
-            0% { background-image: url('mascot.png'); }
-            25% { background-image: url('mascot (2).png'); }
-            50% { background-image: url('mascot (3).png'); }
-            75% { background-image: url('mascot (4).png'); }
-            100% { background-image: url('mascot.png'); }
-        }
-
         #map, #videoElement {
             height: 100vh;
             width: 100vw;
@@ -56,12 +48,6 @@
             width: 200px;
             height: 200px;
             background-size: cover;
-            background-image: url('mascot_frame1.png'); /* Start with the first frame */
-            animation: none; /* No animation by default */
-        }
-
-        .animate {
-            animation: frameAnimation 2s steps(4) infinite; /* Adjust duration and steps as needed */
         }
     </style>
 </head>
@@ -87,6 +73,14 @@
         let videoStream;
         let recognition;
         let model;
+        let mascotFrameIndex = 0;
+        const mascotFrames = [
+            'mascot.png',
+            'mascot (2).png',
+            'mascot (3).png',
+            'mascot (4).png'
+        ];
+        const overlayImage = document.getElementById('overlayImage');
 
         async function loadModel() {
             model = await cocoSsd.load();
@@ -134,20 +128,35 @@
                 const msg = new SpeechSynthesisUtterance(text);
                 msg.lang = 'en-US';
 
-                // Animate mascot
-                const overlayImage = document.getElementById('overlayImage');
-                if (overlayImage) {
-                    overlayImage.classList.add('animate');
-                    // Remove animation class after animation ends
-                    msg.onend = () => {
-                        overlayImage.classList.remove('animate');
-                    };
-                }
+                msg.onstart = function() {
+                    startMascotAnimation(); // Start animation when speaking
+                };
+
+                msg.onend = function() {
+                    stopMascotAnimation(); // Stop animation when done
+                };
 
                 window.speechSynthesis.speak(msg);
             } catch (error) {
                 console.error('Speech synthesis error:', error);
                 alert('Speech synthesis is not supported or encountered an error.');
+            }
+        }
+
+        function startMascotAnimation() {
+            if (overlayImage) {
+                mascotFrameIndex = 0;
+                overlayImage.src = mascotFrames[mascotFrameIndex];
+                setInterval(() => {
+                    mascotFrameIndex = (mascotFrameIndex + 1) % mascotFrames.length;
+                    overlayImage.src = mascotFrames[mascotFrameIndex];
+                }, 200); // Change frame every 200ms
+            }
+        }
+
+        function stopMascotAnimation() {
+            if (overlayImage) {
+                overlayImage.src = mascotFrames[0]; // Set to the first frame
             }
         }
 
@@ -209,8 +218,9 @@
 
                 let overlayImage = document.getElementById('overlayImage');
                 if (!overlayImage) {
-                    overlayImage = document.createElement('div');
+                    overlayImage = document.createElement('img');
                     overlayImage.id = 'overlayImage';
+                    overlayImage.src = 'mascot.png';
                     document.body.appendChild(overlayImage);
                 }
 
@@ -218,31 +228,72 @@
                 document.body.appendChild(videoElement);
                 openCameraButton.style.display = 'none';
                 backToMapButton.style.display = 'block';
+                speakButton.style.display = 'block';
+                scannerButton.style.display = 'block'; // Show Scanner button
+
+                videoStream = stream;
             })
-            .catch(function(err) {
-                console.error("An error occurred: " + err);
-                alert("An error occurred while accessing the camera.");
+            .catch(function(error) {
+                if (error.name === 'NotAllowedError') {
+                    alert('Camera access denied. Please enable camera permissions in your browser settings.');
+                } else if (error.name === 'NotFoundError') {
+                    alert('No camera device found.');
+                } else {
+                    alert('An error occurred while accessing the camera: ' + error.message);
+                }
+                console.error('Error accessing camera:', error);
             });
         });
 
+        scannerButton.addEventListener('click', async function() {
+            if (videoElement) {
+                const predictions = await detectObjects(videoElement);
+
+                if (predictions.length > 0) {
+                    const details = predictions.map(pred => `Detected ${pred.class} with confidence ${Math.round(pred.score * 100)}%`).join(', ');
+                    speak(`The following objects were detected: ${details}`);
+                } else {
+                    speak('No objects detected.');
+                }
+            } else {
+                speak('No video feed available.');
+            }
+        });
+
+        async function detectObjects(video) {
+            const predictions = await model.detect(video);
+            return predictions;
+        }
+
+        speakButton.addEventListener('click', function() {
+            if (recognition) {
+                recognition.start();
+            }
+        });
+
         backToMapButton.addEventListener('click', function() {
+            if (videoStream) {
+                videoStream.getTracks().forEach(track => track.stop());
+                videoStream = null;
+            }
+
             if (videoElement) {
                 document.body.removeChild(videoElement);
                 videoElement = null;
             }
+
+            const overlayImage = document.getElementById('overlayImage');
+            if (overlayImage) {
+                document.body.removeChild(overlayImage);
+            }
+
             mapContainer.style.display = 'block';
+            map.invalidateSize();
+
             openCameraButton.style.display = 'block';
             backToMapButton.style.display = 'none';
-        });
-
-        speakButton.addEventListener('click', function() {
-            // Example usage, replace with actual text
-            speak('This is a test message.');
-        });
-
-        scannerButton.addEventListener('click', function() {
-            // Example usage, you might want to integrate TensorFlow model for scanning
-            speak('Scanner functionality is not yet implemented.');
+            speakButton.style.display = 'none';
+            scannerButton.style.display = 'none'; // Hide Scanner button
         });
     </script>
 </body>
