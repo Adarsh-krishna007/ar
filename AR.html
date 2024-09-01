@@ -173,10 +173,6 @@
                 speakButton.style.display = 'block'; // Show speak button when camera is on
 
                 videoStream = stream;
-
-                if (recognition) {
-                    recognition.start();
-                }
             })
             .catch(function(error) {
                 if (error.name === 'NotAllowedError') {
