@@ -96,23 +96,7 @@
         function speak(text) {
             var msg = new SpeechSynthesisUtterance(text);
             msg.lang = 'en-US';
-
-            // Ensure voices are loaded
-            window.speechSynthesis.onvoiceschanged = function() {
-                var voices = window.speechSynthesis.getVoices();
-                
-                // Find a female voice, or fallback to the first available voice if not found
-                var femaleVoice = voices.find(voice => voice.name.toLowerCase().includes('female') || voice.name.includes('Google UK English Female'));
-                
-                if (femaleVoice) {
-                    msg.voice = femaleVoice;
-                } else {
-                    // Fallback to the first available voice if no female voice found
-                    msg.voice = voices[0];
-                }
-
-                window.speechSynthesis.speak(msg);
-            };
+            window.speechSynthesis.speak(msg);
         }
 
         openCameraButton.addEventListener('click', function() {
@@ -122,7 +106,6 @@
                 }
             })
             .then(function(stream) {
-                // Automatically speak when the camera opens
                 speak("Hello travelers");
 
                 if (videoElement) {
