@@ -75,26 +75,29 @@
 
             L.circle(latlng, radius).addTo(map);
 
-            // Simulating location information
-            let locationInfo = `Latitude: ${latlng.lat.toFixed(4)}, Longitude: ${latlng.lng.toFixed(4)}`;
-
-            if (latlng.lat > 51.51 && latlng.lng < -0.1) {
-                locationInfo += ' - You are near a notable point!';
-            } else {
-                locationInfo += ' - General area.';
-            }
-
-            speak(locationInfo); // Speak location info
+            // Fetch location name using reverse geocoding
+            fetchLocationName(latlng.lat, latlng.lng)
+                .then(locationName => {
+                    const locationInfo = `You are at ${locationName}. Latitude: ${latlng.lat.toFixed(4)}, Longitude: ${latlng.lng.toFixed(4)}`;
+                    speak(locationInfo); // Speak location info
+                })
+                .catch(error => {
+                    console.error('Error fetching location name:', error);
+                    speak('Unable to retrieve location name.');
+                });
         });
 
         map.on('locationerror', function(e) {
             speak('Location access denied or not available.');
         });
 
-        const openCameraButton = document.getElementById('openCameraButton');
-        const backToMapButton = document.getElementById('backToMapButton');
-        const speakButton = document.getElementById('speakButton');
-        const mapContainer = document.getElementById('map');
+        function fetchLocationName(lat, lon) {
+            return fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`)
+                .then(response => response.json())
+                .then(data => {
+                    return data.display_name || 'Unknown location';
+                });
+        }
 
         function speak(text) {
             try {
@@ -139,6 +142,11 @@
             console.warn('Speech recognition not supported in this browser.');
         }
 
+        const openCameraButton = document.getElementById('openCameraButton');
+        const backToMapButton = document.getElementById('backToMapButton');
+        const speakButton = document.getElementById('speakButton');
+        const mapContainer = document.getElementById('map');
+
         openCameraButton.addEventListener('click', function() {
             navigator.mediaDevices.getUserMedia({
                 video: {
@@ -157,7 +165,6 @@
                 videoElement.srcObject = stream;
                 videoElement.autoplay = true;
 
-                // Ensure overlay image is added to the document
                 let overlayImage = document.getElementById('overlayImage');
                 if (!overlayImage) {
                     overlayImage = document.createElement('img');
@@ -170,7 +177,7 @@
                 document.body.appendChild(videoElement);
                 openCameraButton.style.display = 'none';
                 backToMapButton.style.display = 'block';
-                speakButton.style.display = 'block'; // Show speak button when camera is on
+                speakButton.style.display = 'block';
 
                 videoStream = stream;
             })
@@ -213,7 +220,7 @@
 
             openCameraButton.style.display = 'block';
             backToMapButton.style.display = 'none';
-            speakButton.style.display = 'none'; // Hide speak button when camera is off
+            speakButton.style.display = 'none';
         });
     </script>
 </body>
