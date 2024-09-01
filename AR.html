@@ -74,6 +74,7 @@
         let recognition;
         let model;
         let mascotFrameIndex = 0;
+        let animationInterval;
         const mascotFrames = [
             'mascot.png',
             'mascot (2).png',
@@ -144,10 +145,11 @@
         }
 
         function startMascotAnimation() {
+            const overlayImage = document.getElementById('overlayImage');
             if (overlayImage) {
                 mascotFrameIndex = 0;
                 overlayImage.src = mascotFrames[mascotFrameIndex];
-                setInterval(() => {
+                animationInterval = setInterval(() => {
                     mascotFrameIndex = (mascotFrameIndex + 1) % mascotFrames.length;
                     overlayImage.src = mascotFrames[mascotFrameIndex];
                 }, 200); // Change frame every 200ms
@@ -155,7 +157,9 @@
         }
 
         function stopMascotAnimation() {
+            const overlayImage = document.getElementById('overlayImage');
             if (overlayImage) {
+                clearInterval(animationInterval);
                 overlayImage.src = mascotFrames[0]; // Set to the first frame
             }
         }
