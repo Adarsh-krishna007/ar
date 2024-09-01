@@ -101,13 +101,13 @@
             window.speechSynthesis.onvoiceschanged = function() {
                 var voices = window.speechSynthesis.getVoices();
                 
-                // Find a male voice, or fallback to the first available voice if not found
-                var maleVoice = voices.find(voice => voice.name.toLowerCase().includes('male') || voice.name.includes('David') || voice.name.includes('Alex'));
+                // Find a female voice, or fallback to the first available voice if not found
+                var femaleVoice = voices.find(voice => voice.name.toLowerCase().includes('female') || voice.name.includes('Google UK English Female'));
                 
-                if (maleVoice) {
-                    msg.voice = maleVoice;
+                if (femaleVoice) {
+                    msg.voice = femaleVoice;
                 } else {
-                    // Fallback to the first available voice if no male voice found
+                    // Fallback to the first available voice if no female voice found
                     msg.voice = voices[0];
                 }
 
