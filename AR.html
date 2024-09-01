@@ -20,7 +20,6 @@
         #openCameraButton, #backToMapButton, #speakButton {
             position: fixed;
             bottom: 20px;
-            right: 20px;
             z-index: 1000;
             padding: 10px 20px;
             font-size: 16px;
@@ -33,6 +32,7 @@
 
         #speakButton {
             right: 150px; /* Adjust position to avoid overlap with other buttons */
+            display: none; /* Initially hidden */
         }
 
         .custom-text {
@@ -71,11 +71,15 @@
 
         map.on('locationfound', function(e) {
             var radius = e.accuracy / 2;
+            var latlng = e.latlng;
 
-            L.marker(e.latlng).addTo(map)
+            L.marker(latlng).addTo(map)
                 .bindPopup("You are within " + radius + " meters from this point").openPopup();
 
-            L.circle(e.latlng, radius).addTo(map);
+            L.circle(latlng, radius).addTo(map);
+
+            // Fetch and speak about the location
+            fetchLocationInfo(latlng.lat, latlng.lng);
         });
 
         map.on('locationerror', function(e) {
@@ -100,9 +104,37 @@
         var videoStream;
 
         function speak(text) {
-            var msg = new SpeechSynthesisUtterance(text);
-            msg.lang = 'en-US';
-            window.speechSynthesis.speak(msg);
+            try {
+                var msg = new SpeechSynthesisUtterance(text);
+                msg.lang = 'en-US';
+                window.speechSynthesis.speak(msg);
+            } catch (error) {
+                console.error('Speech synthesis error:', error);
+            }
+        }
+
+        function fetchLocationInfo(lat, lng) {
+            // Replace 'YOUR_API_KEY' with your actual OpenCage API key
+            var apiKey = '7562a7ee7d324b9bb6303b1f50020621';
+            var url = `https://api.opencagedata.com/geocode/v1/json?q=${lat}+${lng}&key=${apiKey}`;
+
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.results && data.results.length > 0) {
+                        var result = data.results[0];
+                        var locationName = result.formatted;
+                        var facts = result.annotations ? result.annotations.country.name : "No facts available";
+
+                        speak(`You are at ${locationName}. ${facts}`);
+                    } else {
+                        speak("Location information is not available.");
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching location info:', error);
+                    speak("There was an error fetching location information.");
+                });
         }
 
         if ('webkitSpeechRecognition' in window) {
@@ -161,6 +193,7 @@
 
                     openCameraButton.style.display = 'none';
                     backToMapButton.style.display = 'block';
+                    speakButton.style.display = 'block'; // Show speak button when camera is on
 
                     videoStream = stream;
 
@@ -207,6 +240,7 @@
 
             openCameraButton.style.display = 'block';
             backToMapButton.style.display = 'none';
+            speakButton.style.display = 'none'; // Hide speak button when camera is off
         });
     </script>
 </body>
