@@ -101,7 +101,7 @@
             var voices = window.speechSynthesis.getVoices();
             
             // Find a male voice, or fallback to the first available voice if not found
-            var maleVoice = voices.find(voice => voice.name.includes('Male') || voice.name.includes('David') || voice.name.includes('John'));
+            var maleVoice = voices.find(voice => voice.name.toLowerCase().includes('male') || voice.name.includes('David') || voice.name.includes('Alex'));
             
             if (maleVoice) {
                 msg.voice = maleVoice;
@@ -117,6 +117,7 @@
                 }
             })
             .then(function(stream) {
+                // Automatically speak when the camera opens
                 speak("Hello travelers");
 
                 if (videoElement) {
