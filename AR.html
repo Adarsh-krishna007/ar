@@ -63,7 +63,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
     <script>
         const map = L.map('map').setView([51.505, -0.09], 13);
-
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
             maxZoom: 19
@@ -82,6 +81,7 @@
             'mascot (4).png'
         ];
         const overlayImage = document.getElementById('overlayImage');
+        let locationInfoRequested = false;
 
         async function loadModel() {
             model = await cocoSsd.load();
@@ -93,23 +93,27 @@
         map.locate({ setView: true, maxZoom: 18 });
 
         map.on('locationfound', function(e) {
-            const latlng = e.latlng;
-            const radius = e.accuracy / 2;
+            if (locationInfoRequested) {
+                const latlng = e.latlng;
+                const radius = e.accuracy / 2;
 
-            L.marker(latlng).addTo(map)
-                .bindPopup("You are within " + radius + " meters from this point").openPopup();
+                L.marker(latlng).addTo(map)
+                    .bindPopup("You are within " + radius + " meters from this point").openPopup();
 
-            L.circle(latlng, radius).addTo(map);
+                L.circle(latlng, radius).addTo(map);
 
-            fetchLocationName(latlng.lat, latlng.lng)
-                .then(locationName => {
-                    const locationInfo = `You are at ${locationName}. Latitude: ${latlng.lat.toFixed(4)}, Longitude: ${latlng.lng.toFixed(4)}`;
-                    speak(locationInfo); // Speak location info
-                })
-                .catch(error => {
-                    console.error('Error fetching location name:', error);
-                    speak('Unable to retrieve location name.');
-                });
+                fetchLocationName(latlng.lat, latlng.lng)
+                    .then(locationName => {
+                        const locationInfo = `You are at ${locationName}. Latitude: ${latlng.lat.toFixed(4)}, Longitude: ${latlng.lng.toFixed(4)}`;
+                        speak(locationInfo); // Speak location info
+                    })
+                    .catch(error => {
+                        console.error('Error fetching location name:', error);
+                        speak('Unable to retrieve location name.');
+                    });
+
+                locationInfoRequested = false; // Reset flag
+            }
         });
 
         map.on('locationerror', function(e) {
@@ -152,12 +156,11 @@
                 animationInterval = setInterval(() => {
                     mascotFrameIndex = (mascotFrameIndex + 1) % mascotFrames.length;
                     overlayImage.src = mascotFrames[mascotFrameIndex];
-                }, 300); // Change frame every 200ms
+                }, 300); // Change frame every 400ms (adjust as needed)
             }
         }
 
         function stopMascotAnimation() {
-            const overlayImage = document.getElementById('overlayImage');
             if (overlayImage) {
                 clearInterval(animationInterval);
                 overlayImage.src = mascotFrames[0]; // Set to the first frame
@@ -172,6 +175,7 @@
                 const spokenText = event.results[0][0].transcript;
 
                 if (spokenText.toLowerCase() === 'where am i') {
+                    locationInfoRequested = true;
                     map.locate({
                         setView: true,
                         maxZoom: 16,
