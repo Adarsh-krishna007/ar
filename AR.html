@@ -101,7 +101,7 @@
             var voices = window.speechSynthesis.getVoices();
             
             // Find a male voice, or fallback to the first available voice if not found
-            var maleVoice = voices.find(voice => voice.name.toLowerCase().includes('male') || voice.name.includes('David') || voice.name.includes('Alex'));
+            var maleVoice = voices[50];
             
             if (maleVoice) {
                 msg.voice = maleVoice;
