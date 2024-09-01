@@ -35,23 +35,6 @@
             display: none; /* Initially hidden */
         }
 
-        #info {
-            position: fixed;
-            bottom: 20px;
-            left: 20px;
-            background-color: white;
-            padding: 10px;
-            border-radius: 5px;
-            z-index: 1000;
-        }
-
-        .custom-text {
-            background-color: white;
-            padding: 5px;
-            border-radius: 5px;
-            font-weight: bold;
-        }
-
         #overlayImage {
             position: fixed;
             bottom: 40px;
@@ -67,7 +50,6 @@
     <button id="openCameraButton" aria-label="Open Camera">Open Camera</button>
     <button id="backToMapButton" style="display: none;" aria-label="Back to Map">Back to Map</button>
     <button id="speakButton" aria-label="Speak">Speak</button>
-    <div id="info">Location info will appear here</div>
 
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script>
@@ -102,19 +84,17 @@
                 locationInfo += ' - General area.';
             }
 
-            document.getElementById('info').innerText = locationInfo;
-            speak(locationInfo); // Optionally speak location info
+            speak(locationInfo); // Speak location info
         });
 
         map.on('locationerror', function(e) {
-            document.getElementById('info').innerText = 'Location access denied or not available.';
+            speak('Location access denied or not available.');
         });
 
         const openCameraButton = document.getElementById('openCameraButton');
         const backToMapButton = document.getElementById('backToMapButton');
         const speakButton = document.getElementById('speakButton');
         const mapContainer = document.getElementById('map');
-        const infoElement = document.getElementById('info');
 
         function speak(text) {
             try {
