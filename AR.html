@@ -157,14 +157,17 @@
                 videoElement.srcObject = stream;
                 videoElement.autoplay = true;
 
-                const overlayImage = document.createElement('img');
-                overlayImage.id = 'overlayImage';
-                overlayImage.src = 'mascot.png';
+                // Ensure overlay image is added to the document
+                let overlayImage = document.getElementById('overlayImage');
+                if (!overlayImage) {
+                    overlayImage = document.createElement('img');
+                    overlayImage.id = 'overlayImage';
+                    overlayImage.src = 'mascot.png';
+                    document.body.appendChild(overlayImage);
+                }
 
                 mapContainer.style.display = 'none';
                 document.body.appendChild(videoElement);
-                document.body.appendChild(overlayImage);
-
                 openCameraButton.style.display = 'none';
                 backToMapButton.style.display = 'block';
                 speakButton.style.display = 'block'; // Show speak button when camera is on
