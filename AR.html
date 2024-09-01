@@ -99,70 +99,81 @@
             window.speechSynthesis.speak(msg);
         }
 
-        var recognition = new webkitSpeechRecognition();
-        recognition.lang = 'en-US'; // Set the language to English (US)
+        if ('webkitSpeechRecognition' in window) {
+            var recognition = new webkitSpeechRecognition();
+            recognition.lang = 'en-US';
 
-        recognition.onresult = function(event) {
-            var spokenText = event.results[0][0].transcript;
+            recognition.onresult = function(event) {
+                var spokenText = event.results[0][0].transcript;
 
-            if (spokenText.toLowerCase() === 'where am i') {
-                // User spoke "where am i"
-                map.locate({
-                    setView: true,
-                    maxZoom: 16,
-                    enableHighAccuracy: true
+                if (spokenText.toLowerCase() === 'where am i') {
+                    map.locate({
+                        setView: true,
+                        maxZoom: 16,
+                        enableHighAccuracy: true
+                    });
+                }
+            };
+
+            recognition.onerror = function(event) {
+                console.error('Speech recognition error:', event);
+            };
+
+            recognition.onstart = function() {
+                console.log('Speech recognition service has started.');
+            };
+
+            recognition.onend = function() {
+                console.log('Speech recognition service has ended.');
+            };
+
+            openCameraButton.addEventListener('click', function() {
+                navigator.mediaDevices.getUserMedia({
+                    video: {
+                        facingMode: { exact: "environment" }
+                    }
+                })
+                .then(function(stream) {
+                    speak("Hello travelers");
+
+                    if (videoElement) {
+                        document.body.removeChild(videoElement);
+                    }
+
+                    videoElement = document.createElement('video');
+                    videoElement.id = 'videoElement';
+                    videoElement.srcObject = stream;
+                    videoElement.autoplay = true;
+
+                    var overlayImage = document.createElement('img');
+                    overlayImage.id = 'overlayImage';
+                    overlayImage.src = 'mascot.png';
+
+                    mapContainer.style.display = 'none';
+                    document.body.appendChild(videoElement);
+                    document.body.appendChild(overlayImage);
+
+                    openCameraButton.style.display = 'none';
+                    backToMapButton.style.display = 'block';
+
+                    videoStream = stream;
+
+                    recognition.start();
+                })
+                .catch(function(error) {
+                    if (error.name === 'NotAllowedError') {
+                        alert('Camera access denied. Please enable camera permissions in your browser settings.');
+                    } else if (error.name === 'NotFoundError') {
+                        alert('No camera device found.');
+                    } else {
+                        alert('An error occurred while accessing the camera: ' + error.message);
+                    }
+                    console.error('Error accessing camera:', error);
                 });
-            }
-        };
-
-        recognition.onerror = function(event) {
-            console.error('Speech recognition error:', event);
-        };
-
-        openCameraButton.addEventListener('click', function() {
-            navigator.mediaDevices.getUserMedia({
-                video: {
-                    facingMode: { exact: "environment" }
-                }
-            })
-            .then(function(stream) {
-                speak("Hello travelers");
-
-                if (videoElement) {
-                    document.body.removeChild(videoElement);
-                }
-
-                videoElement = document.createElement('video');
-                videoElement.id = 'videoElement';
-                videoElement.srcObject = stream;
-                videoElement.autoplay = true;
-
-                var overlayImage = document.createElement('img');
-                overlayImage.id = 'overlayImage';
-                overlayImage.src = 'mascot.png';
-
-                mapContainer.style.display = 'none';
-                document.body.appendChild(videoElement);
-                document.body.appendChild(overlayImage);
-
-                openCameraButton.style.display = 'none';
-                backToMapButton.style.display = 'block';
-
-                videoStream = stream;
-
-                recognition.start();
-            })
-            .catch(function(error) {
-                if (error.name === 'NotAllowedError') {
-                    alert('Camera access denied. Please enable camera permissions in your browser settings.');
-                } else if (error.name === 'NotFoundError') {
-                    alert('No camera device found.');
-                } else {
-                    alert('An error occurred while accessing the camera: ' + error.message);
-                }
-                console.error('Error accessing camera:', error);
             });
-        });
+        } else {
+            console.warn('Speech recognition not supported in this browser.');
+        }
 
         backToMapButton.addEventListener('click', function() {
             if (videoStream) {
