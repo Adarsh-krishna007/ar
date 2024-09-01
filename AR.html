@@ -61,7 +61,317 @@
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
+    <script><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TRAVEL-MIND</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <style>
+        #map, #videoElement {
+            height: 100vh;
+            width: 100vw;
+            position: fixed;
+            top: 0;
+            left: 0;
+            margin: 0;
+            padding: 0;
+            z-index: 1;
+        }
+
+        #openCameraButton, #backToMapButton, #speakButton, #scannerButton {
+            position: fixed;
+            bottom: 20px;
+            z-index: 1000;
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        #speakButton {
+            right: 150px; /* Adjust position to avoid overlap with other buttons */
+            display: none; /* Initially hidden */
+        }
+
+        #scannerButton {
+            right: 20px; /* Position near the bottom-right corner */
+            display: none; /* Initially hidden */
+        }
+
+        #overlayImage {
+            position: fixed;
+            bottom: 40px;
+            left: 20px;
+            z-index: 1000;
+            width: 200px;
+            height: 200px;
+            background-size: cover;
+            display: none; /* Initially hidden */
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <button id="openCameraButton" aria-label="Open Camera">Open Camera</button>
+    <button id="backToMapButton" style="display: none;" aria-label="Back to Map">Back to Map</button>
+    <button id="speakButton" aria-label="Speak">Speak</button>
+    <button id="scannerButton" aria-label="Scanner">Scanner</button>
+    <img id="overlayImage" src="mascot.png" alt="Mascot">
+
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
     <script>
+        const map = L.map('map').setView([51.505, -0.09], 13);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+            maxZoom: 19
+        }).addTo(map);
+
+        let videoElement;
+        let videoStream;
+        let recognition;
+        let model;
+        let mascotFrameIndex = 0;
+        let animationInterval;
+        const mascotFrames = [
+            'mascot.png',
+            'mascot (2).png',
+            'mascot (3).png',
+            'mascot (4).png'
+        ];
+        const overlayImage = document.getElementById('overlayImage');
+        let currentLocationName = 'Unknown location'; // Store location name
+
+        async function loadModel() {
+            model = await cocoSsd.load();
+            console.log('Model loaded.');
+        }
+
+        loadModel();
+
+        map.locate({ setView: true, maxZoom: 18 });
+
+        map.on('locationfound', function(e) {
+            const latlng = e.latlng;
+            const radius = e.accuracy / 2;
+
+            L.marker(latlng).addTo(map)
+                .bindPopup("You are within " + radius + " meters from this point").openPopup();
+
+            L.circle(latlng, radius).addTo(map);
+
+            fetchLocationName(latlng.lat, latlng.lng)
+                .then(locationName => {
+                    currentLocationName = locationName; // Update current location name
+                })
+                .catch(error => {
+                    console.error('Error fetching location name:', error);
+                    currentLocationName = 'Unknown location'; // Fallback location name
+                });
+        });
+
+        map.on('locationerror', function(e) {
+            speak('Location access denied or not available.');
+        });
+
+        function fetchLocationName(lat, lon) {
+            return fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`)
+                .then(response => response.json())
+                .then(data => {
+                    return data.display_name || 'Unknown location';
+                });
+        }
+
+        function speak(text) {
+            try {
+                const msg = new SpeechSynthesisUtterance(text);
+                msg.lang = 'en-US';
+
+                msg.onstart = function() {
+                    startMascotAnimation(); // Start animation when speaking
+                };
+
+                msg.onend = function() {
+                    stopMascotAnimation(); // Stop animation when done
+                };
+
+                window.speechSynthesis.speak(msg);
+            } catch (error) {
+                console.error('Speech synthesis error:', error);
+                alert('Speech synthesis is not supported or encountered an error.');
+            }
+        }
+
+        function startMascotAnimation() {
+            const overlayImage = document.getElementById('overlayImage');
+            if (overlayImage) {
+                mascotFrameIndex = 0;
+                overlayImage.src = mascotFrames[mascotFrameIndex];
+                overlayImage.style.display = 'block'; // Show the mascot image
+                animationInterval = setInterval(() => {
+                    mascotFrameIndex = (mascotFrameIndex + 1) % mascotFrames.length;
+                    overlayImage.src = mascotFrames[mascotFrameIndex];
+                }, 200); // Change frame every 200ms
+            }
+        }
+
+        function stopMascotAnimation() {
+            const overlayImage = document.getElementById('overlayImage');
+            if (overlayImage) {
+                clearInterval(animationInterval);
+                overlayImage.src = mascotFrames[0]; // Set to the first frame
+                overlayImage.style.display = 'none'; // Hide the mascot image
+            }
+        }
+
+        if ('webkitSpeechRecognition' in window) {
+            recognition = new webkitSpeechRecognition();
+            recognition.lang = 'en-US';
+
+            recognition.onresult = function(event) {
+                const spokenText = event.results[0][0].transcript.toLowerCase();
+
+                if (spokenText === 'where am i') {
+                    map.locate({
+                        setView: true,
+                        maxZoom: 16,
+                        enableHighAccuracy: true
+                    });
+                } else if (spokenText === 'what is my location') {
+                    speak(`You are at ${currentLocationName}`);
+                }
+            };
+
+            recognition.onerror = function(event) {
+                console.error('Speech recognition error:', event);
+                alert('Speech recognition encountered an error.');
+            };
+
+            recognition.onstart = function() {
+                console.log('Speech recognition service has started.');
+            };
+
+            recognition.onend = function() {
+                console.log('Speech recognition service has ended.');
+            };
+        } else {
+            console.warn('Speech recognition not supported in this browser.');
+        }
+
+        const openCameraButton = document.getElementById('openCameraButton');
+        const backToMapButton = document.getElementById('backToMapButton');
+        const speakButton = document.getElementById('speakButton');
+        const scannerButton = document.getElementById('scannerButton');
+        const mapContainer = document.getElementById('map');
+
+        openCameraButton.addEventListener('click', function() {
+            navigator.mediaDevices.getUserMedia({
+                video: {
+                    facingMode: { exact: "environment" }
+                }
+            })
+            .then(function(stream) {
+                speak("Hello travelers");
+
+                if (videoElement) {
+                    document.body.removeChild(videoElement);
+                }
+
+                videoElement = document.createElement('video');
+                videoElement.id = 'videoElement';
+                videoElement.srcObject = stream;
+                videoElement.autoplay = true;
+
+                let overlayImage = document.getElementById('overlayImage');
+                if (!overlayImage) {
+                    overlayImage = document.createElement('img');
+                    overlayImage.id = 'overlayImage';
+                    overlayImage.src = 'mascot.png';
+                    document.body.appendChild(overlayImage);
+                }
+
+                mapContainer.style.display = 'none';
+                document.body.appendChild(videoElement);
+                openCameraButton.style.display = 'none';
+                backToMapButton.style.display = 'block';
+                speakButton.style.display = 'block';
+                scannerButton.style.display = 'block'; // Show Scanner button
+
+                videoStream = stream;
+            })
+            .catch(function(error) {
+                if (error.name === 'NotAllowedError') {
+                    alert('Camera access denied. Please enable camera permissions in your browser settings.');
+                } else if (error.name === 'NotFoundError') {
+                    alert('No camera device found.');
+                } else {
+                    alert('An error occurred while accessing the camera: ' + error.message);
+                }
+                console.error('Error accessing camera:', error);
+            });
+        });
+
+        scannerButton.addEventListener('click', async function() {
+            if (videoElement) {
+                const predictions = await detectObjects(videoElement);
+
+                if (predictions.length > 0) {
+                    const details = predictions.map(pred => `Detected ${pred.class} with confidence ${Math.round(pred.score * 100)}%`).join(', ');
+                    speak(`The following objects were detected: ${details}`);
+                } else {
+                    speak('No objects detected.');
+                }
+            } else {
+                speak('No video feed available.');
+            }
+        });
+
+        async function detectObjects(video) {
+            const predictions = await model.detect(video);
+            return predictions;
+        }
+
+        speakButton.addEventListener('click', function() {
+            if (recognition) {
+                recognition.start();
+            }
+        });
+
+        backToMapButton.addEventListener('click', function() {
+            if (videoStream) {
+                videoStream.getTracks().forEach(track => track.stop());
+                videoStream = null;
+            }
+
+            if (videoElement) {
+                document.body.removeChild(videoElement);
+                videoElement = null;
+            }
+
+            const overlayImage = document.getElementById('overlayImage');
+            if (overlayImage) {
+                document.body.removeChild(overlayImage);
+            }
+
+            mapContainer.style.display = 'block';
+            map.invalidateSize();
+
+            openCameraButton.style.display = 'block';
+            backToMapButton.style.display = 'none';
+            speakButton.style.display = 'none';
+            scannerButton.style.display = 'none'; // Hide Scanner button
+        });
+    </script>
+</body>
+</html>
+
         const map = L.map('map').setView([51.505, -0.09], 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
