@@ -174,11 +174,7 @@
                 const spokenText = event.results[0][0].transcript.toLowerCase();
 
                 if (spokenText === 'where am i') {
-                    map.locate({
-                        setView: true,
-                        maxZoom: 16,
-                        enableHighAccuracy: true
-                    });
+                    speak(`You are at ${currentLocationName}`);
                 } else if (spokenText === 'what is my location') {
                     speak(`You are at ${currentLocationName}`);
                 }
