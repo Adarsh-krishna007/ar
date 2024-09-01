@@ -163,7 +163,6 @@
             if (overlayImage) {
                 clearInterval(animationInterval);
                 overlayImage.src = mascotFrames[0]; // Set to the first frame
-                overlayImage.style.display = 'none'; // Hide the mascot image when not needed
             }
         }
 
@@ -295,7 +294,7 @@
 
             const overlayImage = document.getElementById('overlayImage');
             if (overlayImage) {
-                document.body.removeChild(overlayImage);
+                overlayImage.style.display = 'none'; // Hide mascot image when not needed
             }
 
             mapContainer.style.display = 'block';
