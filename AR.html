@@ -93,6 +93,12 @@
         var videoElement;
         var videoStream;
 
+        function speak(text) {
+            var msg = new SpeechSynthesisUtterance(text);
+            msg.lang = 'en-US';
+            window.speechSynthesis.speak(msg);
+        }
+
         openCameraButton.addEventListener('click', function() {
             navigator.mediaDevices.getUserMedia({
                 video: {
@@ -100,6 +106,8 @@
                 }
             })
             .then(function(stream) {
+                speak("Hello travelers");
+
                 if (videoElement) {
                     document.body.removeChild(videoElement);
                 }
