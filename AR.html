@@ -35,6 +35,16 @@
             display: none; /* Initially hidden */
         }
 
+        #info {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background-color: white;
+            padding: 10px;
+            border-radius: 5px;
+            z-index: 1000;
+        }
+
         .custom-text {
             background-color: white;
             padding: 5px;
@@ -54,95 +64,75 @@
 </head>
 <body>
     <div id="map"></div>
-    <button id="openCameraButton">Open Camera</button>
-    <button id="backToMapButton" style="display: none;">Back to Map</button>
-    <button id="speakButton">Speak</button>
+    <button id="openCameraButton" aria-label="Open Camera">Open Camera</button>
+    <button id="backToMapButton" style="display: none;" aria-label="Back to Map">Back to Map</button>
+    <button id="speakButton" aria-label="Speak">Speak</button>
+    <div id="info">Location info will appear here</div>
 
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script>
-        var map = L.map('map').setView([51.505, -0.09], 13);
+        const map = L.map('map').setView([51.505, -0.09], 13);
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
             maxZoom: 19
         }).addTo(map);
 
+        let videoElement;
+        let videoStream;
+        let recognition;
+
         map.locate({ setView: true, maxZoom: 18 });
 
         map.on('locationfound', function(e) {
-            var radius = e.accuracy / 2;
-            var latlng = e.latlng;
+            const latlng = e.latlng;
+            const radius = e.accuracy / 2;
 
             L.marker(latlng).addTo(map)
                 .bindPopup("You are within " + radius + " meters from this point").openPopup();
 
             L.circle(latlng, radius).addTo(map);
 
-            // Fetch and speak about the location
-            fetchLocationInfo(latlng.lat, latlng.lng);
+            // Simulating location information
+            let locationInfo = `Latitude: ${latlng.lat.toFixed(4)}, Longitude: ${latlng.lng.toFixed(4)}`;
+
+            if (latlng.lat > 51.51 && latlng.lng < -0.1) {
+                locationInfo += ' - You are near a notable point!';
+            } else {
+                locationInfo += ' - General area.';
+            }
+
+            document.getElementById('info').innerText = locationInfo;
+            speak(locationInfo); // Optionally speak location info
         });
 
         map.on('locationerror', function(e) {
-            alert("Location access denied or not available.");
+            document.getElementById('info').innerText = 'Location access denied or not available.';
         });
 
-        var customControl = L.control({ position: 'topright' });
-
-        customControl.onAdd = function (map) {
-            var div = L.DomUtil.create('div', 'custom-text');
-            div.innerHTML = 'TRAVEL-MIND';
-            return div;
-        };
-
-        customControl.addTo(map);
-
-        var openCameraButton = document.getElementById('openCameraButton');
-        var backToMapButton = document.getElementById('backToMapButton');
-        var speakButton = document.getElementById('speakButton');
-        var mapContainer = document.getElementById('map');
-        var videoElement;
-        var videoStream;
+        const openCameraButton = document.getElementById('openCameraButton');
+        const backToMapButton = document.getElementById('backToMapButton');
+        const speakButton = document.getElementById('speakButton');
+        const mapContainer = document.getElementById('map');
+        const infoElement = document.getElementById('info');
 
         function speak(text) {
             try {
-                var msg = new SpeechSynthesisUtterance(text);
+                const msg = new SpeechSynthesisUtterance(text);
                 msg.lang = 'en-US';
                 window.speechSynthesis.speak(msg);
             } catch (error) {
                 console.error('Speech synthesis error:', error);
+                alert('Speech synthesis is not supported or encountered an error.');
             }
         }
 
-        function fetchLocationInfo(lat, lng) {
-            // Replace 'YOUR_API_KEY' with your actual OpenCage API key
-            var apiKey = '7562a7ee7d324b9bb6303b1f50020621';
-            var url = `https://api.opencagedata.com/geocode/v1/json?q=${lat}+${lng}&key=${apiKey}`;
-
-            fetch(url)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.results && data.results.length > 0) {
-                        var result = data.results[0];
-                        var locationName = result.formatted;
-                        var facts = result.annotations ? result.annotations.country.name : "No facts available";
-
-                        speak(`You are at ${locationName}. ${facts}`);
-                    } else {
-                        speak("Location information is not available.");
-                    }
-                })
-                .catch(error => {
-                    console.error('Error fetching location info:', error);
-                    speak("There was an error fetching location information.");
-                });
-        }
-
         if ('webkitSpeechRecognition' in window) {
-            var recognition = new webkitSpeechRecognition();
+            recognition = new webkitSpeechRecognition();
             recognition.lang = 'en-US';
 
             recognition.onresult = function(event) {
-                var spokenText = event.results[0][0].transcript;
+                const spokenText = event.results[0][0].transcript;
 
                 if (spokenText.toLowerCase() === 'where am i') {
                     map.locate({
@@ -155,6 +145,7 @@
 
             recognition.onerror = function(event) {
                 console.error('Speech recognition error:', event);
+                alert('Speech recognition encountered an error.');
             };
 
             recognition.onstart = function() {
@@ -164,60 +155,63 @@
             recognition.onend = function() {
                 console.log('Speech recognition service has ended.');
             };
-
-            openCameraButton.addEventListener('click', function() {
-                navigator.mediaDevices.getUserMedia({
-                    video: {
-                        facingMode: { exact: "environment" }
-                    }
-                })
-                .then(function(stream) {
-                    speak("Hello travelers");
-
-                    if (videoElement) {
-                        document.body.removeChild(videoElement);
-                    }
-
-                    videoElement = document.createElement('video');
-                    videoElement.id = 'videoElement';
-                    videoElement.srcObject = stream;
-                    videoElement.autoplay = true;
-
-                    var overlayImage = document.createElement('img');
-                    overlayImage.id = 'overlayImage';
-                    overlayImage.src = 'mascot.png';
-
-                    mapContainer.style.display = 'none';
-                    document.body.appendChild(videoElement);
-                    document.body.appendChild(overlayImage);
-
-                    openCameraButton.style.display = 'none';
-                    backToMapButton.style.display = 'block';
-                    speakButton.style.display = 'block'; // Show speak button when camera is on
-
-                    videoStream = stream;
-
-                    recognition.start();
-                })
-                .catch(function(error) {
-                    if (error.name === 'NotAllowedError') {
-                        alert('Camera access denied. Please enable camera permissions in your browser settings.');
-                    } else if (error.name === 'NotFoundError') {
-                        alert('No camera device found.');
-                    } else {
-                        alert('An error occurred while accessing the camera: ' + error.message);
-                    }
-                    console.error('Error accessing camera:', error);
-                });
-            });
-
-            speakButton.addEventListener('click', function() {
-                recognition.start();
-            });
-
         } else {
             console.warn('Speech recognition not supported in this browser.');
         }
+
+        openCameraButton.addEventListener('click', function() {
+            navigator.mediaDevices.getUserMedia({
+                video: {
+                    facingMode: { exact: "environment" }
+                }
+            })
+            .then(function(stream) {
+                speak("Hello travelers");
+
+                if (videoElement) {
+                    document.body.removeChild(videoElement);
+                }
+
+                videoElement = document.createElement('video');
+                videoElement.id = 'videoElement';
+                videoElement.srcObject = stream;
+                videoElement.autoplay = true;
+
+                const overlayImage = document.createElement('img');
+                overlayImage.id = 'overlayImage';
+                overlayImage.src = 'mascot.png';
+
+                mapContainer.style.display = 'none';
+                document.body.appendChild(videoElement);
+                document.body.appendChild(overlayImage);
+
+                openCameraButton.style.display = 'none';
+                backToMapButton.style.display = 'block';
+                speakButton.style.display = 'block'; // Show speak button when camera is on
+
+                videoStream = stream;
+
+                if (recognition) {
+                    recognition.start();
+                }
+            })
+            .catch(function(error) {
+                if (error.name === 'NotAllowedError') {
+                    alert('Camera access denied. Please enable camera permissions in your browser settings.');
+                } else if (error.name === 'NotFoundError') {
+                    alert('No camera device found.');
+                } else {
+                    alert('An error occurred while accessing the camera: ' + error.message);
+                }
+                console.error('Error accessing camera:', error);
+            });
+        });
+
+        speakButton.addEventListener('click', function() {
+            if (recognition) {
+                recognition.start();
+            }
+        });
 
         backToMapButton.addEventListener('click', function() {
             if (videoStream) {
@@ -230,7 +224,7 @@
                 videoElement = null;
             }
 
-            var overlayImage = document.getElementById('overlayImage');
+            const overlayImage = document.getElementById('overlayImage');
             if (overlayImage) {
                 document.body.removeChild(overlayImage);
             }
