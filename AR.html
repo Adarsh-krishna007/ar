@@ -257,13 +257,14 @@
         async function detectMonumentAndDescribe() {
             if (videoElement && model) {
                 const frame = captureFrame(videoElement);
+                
+                // Create ImageBitmap and Tensor
                 const base64Image = frame.toDataURL('image/jpeg').split(',')[1]; // Get base64 image data
-
                 const imgBlob = await fetch(`data:image/jpeg;base64,${base64Image}`).then(res => res.blob());
                 const img = await createImageBitmap(imgBlob);
-
                 const imgTensor = tf.browser.fromPixels(img);
 
+                // Perform object detection
                 const predictions = await model.detect(imgTensor);
 
                 if (predictions.length > 0) {
