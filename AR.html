@@ -31,13 +31,13 @@
         }
 
         #speakButton {
-            right: 150px;
-            display: none;
+            right: 150px; /* Adjust position to avoid overlap with other buttons */
+            display: none; /* Initially hidden */
         }
 
         #scannerButton {
-            right: 20px;
-            display: none;
+            right: 20px; /* Position near the bottom-right corner */
+            display: none; /* Initially hidden */
         }
 
         #overlayImage {
@@ -48,11 +48,7 @@
             width: 200px;
             height: 200px;
             background-size: cover;
-            display: none;
-        }
-
-        canvas {
-            display: none; /* Hide the canvas element */
+            display: none; /* Initially hidden */
         }
     </style>
 </head>
@@ -63,10 +59,10 @@
     <button id="speakButton" aria-label="Speak">Speak</button>
     <button id="scannerButton" aria-label="Scanner">Scanner</button>
     <img id="overlayImage" src="mascot.png" alt="Mascot">
-    <canvas id="canvas"></canvas>
 
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@latest/dist/tesseract.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
     <script>
         const map = L.map('map').setView([51.505, -0.09], 13);
 
@@ -78,6 +74,7 @@
         let videoElement;
         let videoStream;
         let recognition;
+        let model;
         let mascotFrameIndex = 0;
         let animationInterval;
         const mascotFrames = [
@@ -86,7 +83,14 @@
             'mascot (3).png',
             'mascot (4).png'
         ];
-        let currentLocationName = 'Unknown location';
+        let currentLocationName = 'Unknown location'; // Store location name
+
+        async function loadModel() {
+            model = await cocoSsd.load();
+            console.log('Model loaded.');
+        }
+
+        loadModel();
 
         map.locate({ setView: true, maxZoom: 18 });
 
@@ -101,11 +105,11 @@
 
             fetchLocationName(latlng.lat, latlng.lng)
                 .then(locationName => {
-                    currentLocationName = locationName;
+                    currentLocationName = locationName; // Update current location name
                 })
                 .catch(error => {
                     console.error('Error fetching location name:', error);
-                    currentLocationName = 'Unknown location';
+                    currentLocationName = 'Unknown location'; // Fallback location name
                 });
         });
 
@@ -127,11 +131,11 @@
                 msg.lang = 'en-US';
 
                 msg.onstart = function() {
-                    startMascotAnimation();
+                    startMascotAnimation(); // Start animation when speaking
                 };
 
                 msg.onend = function() {
-                    stopMascotAnimation();
+                    stopMascotAnimation(); // Stop animation when done
                 };
 
                 window.speechSynthesis.speak(msg);
@@ -146,11 +150,11 @@
             if (overlayImage) {
                 mascotFrameIndex = 0;
                 overlayImage.src = mascotFrames[mascotFrameIndex];
-                overlayImage.style.display = 'block';
+                overlayImage.style.display = 'block'; // Ensure the mascot image is visible
                 animationInterval = setInterval(() => {
                     mascotFrameIndex = (mascotFrameIndex + 1) % mascotFrames.length;
                     overlayImage.src = mascotFrames[mascotFrameIndex];
-                }, 200);
+                }, 200); // Change frame every 200ms
             }
         }
 
@@ -158,7 +162,7 @@
             const overlayImage = document.getElementById('overlayImage');
             if (overlayImage) {
                 clearInterval(animationInterval);
-                overlayImage.src = mascotFrames[0];
+                overlayImage.src = mascotFrames[0]; // Set to the first frame
             }
         }
 
@@ -223,7 +227,7 @@
                     overlayImage.src = 'mascot.png';
                     document.body.appendChild(overlayImage);
                 } else {
-                    overlayImage.style.display = 'block';
+                    overlayImage.style.display = 'block'; // Ensure the mascot image is visible
                 }
 
                 mapContainer.style.display = 'none';
@@ -231,7 +235,7 @@
                 openCameraButton.style.display = 'none';
                 backToMapButton.style.display = 'block';
                 speakButton.style.display = 'block';
-                scannerButton.style.display = 'block';
+                scannerButton.style.display = 'block'; // Show Scanner button
 
                 videoStream = stream;
             })
@@ -249,46 +253,22 @@
 
         scannerButton.addEventListener('click', async function() {
             if (videoElement) {
-                // Set canvas dimensions
-                canvas.width = videoElement.videoWidth;
-                canvas.height = videoElement.videoHeight;
+                const predictions = await detectObjects(videoElement);
 
-                // Draw video frame onto canvas
-                const context = canvas.getContext('2d');
-                context.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
-
-                // Get image data from canvas
-                const imageData = canvas.toDataURL('image/jpeg');
-
-                // Convert base64 to blob
-                const blob = dataURLtoBlob(imageData);
-
-                // Use Tesseract.js to recognize text
-                const result = await Tesseract.recognize(
-                    blob,
-                    'eng',
-                    {
-                        logger: info => console.log(info) // Optional: Log progress
-                    }
-                );
-
-                // Extract text from result
-                const text = result.data.text;
-                speak(`The text found is: ${text}`);
+                if (predictions.length > 0) {
+                    const details = predictions.map(pred => `Detected ${pred.class} with confidence ${Math.round(pred.score * 100)}%`).join(', ');
+                    speak(`The following objects were detected: ${details}`);
+                } else {
+                    speak('No objects detected.');
+                }
             } else {
                 speak('No video feed available.');
             }
         });
 
-        function dataURLtoBlob(dataURL) {
-            const [header, data] = dataURL.split(',');
-            const mime = header.split(':')[1].split(';')[0];
-            const binary = atob(data);
-            const array = [];
-            for (let i = 0; i < binary.length; i++) {
-                array.push(binary.charCodeAt(i));
-            }
-            return new Blob([new Uint8Array(array)], { type: mime });
+        async function detectObjects(video) {
+            const predictions = await model.detect(video);
+            return predictions;
         }
 
         speakButton.addEventListener('click', function() {
@@ -310,7 +290,7 @@
 
             const overlayImage = document.getElementById('overlayImage');
             if (overlayImage) {
-                overlayImage.style.display = 'none';
+                overlayImage.style.display = 'none'; // Hide mascot image when not needed
             }
 
             mapContainer.style.display = 'block';
@@ -319,7 +299,7 @@
             openCameraButton.style.display = 'block';
             backToMapButton.style.display = 'none';
             speakButton.style.display = 'none';
-            scannerButton.style.display = 'none';
+            scannerButton.style.display = 'none'; // Hide Scanner button
         });
     </script>
 </body>
