@@ -63,6 +63,7 @@
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ocrad.js/0.2.0/ocrad.min.js"></script>
     <script>
         const map = L.map('map').setView([51.505, -0.09], 13);
 
@@ -253,23 +254,22 @@
 
         scannerButton.addEventListener('click', async function() {
             if (videoElement) {
-                const predictions = await detectObjects(videoElement);
+                // Create a canvas to capture the image from the video
+                const canvas = document.createElement('canvas');
+                canvas.width = videoElement.videoWidth;
+                canvas.height = videoElement.videoHeight;
+                const context = canvas.getContext('2d');
+                context.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
 
-                if (predictions.length > 0) {
-                    const details = predictions.map(pred => `Detected ${pred.class} with confidence ${Math.round(pred.score * 100)}%`).join(', ');
-                    speak(`The following objects were detected: ${details}`);
-                } else {
-                    speak('No objects detected.');
-                }
+                // Perform OCR on the captured image
+                const text = OCRAD(canvas);
+
+                // Display OCR result
+                speak(`Extracted text: ${text}`);
             } else {
                 speak('No video feed available.');
             }
         });
-
-        async function detectObjects(video) {
-            const predictions = await model.detect(video);
-            return predictions;
-        }
 
         speakButton.addEventListener('click', function() {
             if (recognition) {
