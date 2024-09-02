@@ -6,12 +6,6 @@
     <title>TRAVEL-MIND</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
     <style>
-        body {
-            margin: 0;
-            font-family: Arial, sans-serif;
-            background-color: #f0f0f0;
-        }
-
         #map, #videoElement {
             height: 100vh;
             width: 100vw;
@@ -34,21 +28,16 @@
             border: none;
             border-radius: 5px;
             cursor: pointer;
-            transition: background-color 0.3s ease;
-        }
-
-        #openCameraButton:hover, #backToMapButton:hover, #speakButton:hover, #scannerButton:hover {
-            background-color: #0056b3;
         }
 
         #speakButton {
-            right: 150px;
-            display: none;
+            right: 150px; /* Adjust position to avoid overlap with other buttons */
+            display: none; /* Initially hidden */
         }
 
         #scannerButton {
-            right: 20px;
-            display: none;
+            right: 20px; /* Position near the bottom-right corner */
+            display: none; /* Initially hidden */
         }
 
         #overlayImage {
@@ -59,25 +48,7 @@
             width: 200px;
             height: 200px;
             background-size: cover;
-            display: none;
-        }
-
-        #loadingAnimation {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            z-index: 1000;
-            width: 50px;
-            height: 50px;
-            border: 6px solid rgba(0, 0, 0, 0.1);
-            border-radius: 50%;
-            border-top-color: #007bff;
-            animation: spin 1s linear infinite;
-            display: none;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
+            display: none; /* Initially hidden */
         }
     </style>
 </head>
@@ -88,7 +59,6 @@
     <button id="speakButton" aria-label="Speak">Speak</button>
     <button id="scannerButton" aria-label="Scanner">Scanner</button>
     <img id="overlayImage" src="mascot.png" alt="Mascot">
-    <div id="loadingAnimation"></div>
 
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
@@ -113,13 +83,11 @@
             'mascot (3).png',
             'mascot (4).png'
         ];
-        let currentLocationName = 'Unknown location';
+        let currentLocationName = 'Unknown location'; // Store location name
 
         async function loadModel() {
-            showLoadingAnimation();
             model = await cocoSsd.load();
             console.log('Model loaded.');
-            hideLoadingAnimation();
         }
 
         loadModel();
@@ -137,11 +105,11 @@
 
             fetchLocationName(latlng.lat, latlng.lng)
                 .then(locationName => {
-                    currentLocationName = locationName;
+                    currentLocationName = locationName; // Update current location name
                 })
                 .catch(error => {
                     console.error('Error fetching location name:', error);
-                    currentLocationName = 'Unknown location';
+                    currentLocationName = 'Unknown location'; // Fallback location name
                 });
         });
 
@@ -150,7 +118,7 @@
         });
 
         function fetchLocationName(lat, lon) {
-            return fetch(https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json)
+            return fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`)
                 .then(response => response.json())
                 .then(data => {
                     return data.display_name || 'Unknown location';
@@ -163,11 +131,11 @@
                 msg.lang = 'en-US';
 
                 msg.onstart = function() {
-                    startMascotAnimation();
+                    startMascotAnimation(); // Start animation when speaking
                 };
 
                 msg.onend = function() {
-                    stopMascotAnimation();
+                    stopMascotAnimation(); // Stop animation when done
                 };
 
                 window.speechSynthesis.speak(msg);
@@ -182,11 +150,11 @@
             if (overlayImage) {
                 mascotFrameIndex = 0;
                 overlayImage.src = mascotFrames[mascotFrameIndex];
-                overlayImage.style.display = 'block';
+                overlayImage.style.display = 'block'; // Ensure the mascot image is visible
                 animationInterval = setInterval(() => {
                     mascotFrameIndex = (mascotFrameIndex + 1) % mascotFrames.length;
                     overlayImage.src = mascotFrames[mascotFrameIndex];
-                }, 200);
+                }, 200); // Change frame every 200ms
             }
         }
 
@@ -194,7 +162,7 @@
             const overlayImage = document.getElementById('overlayImage');
             if (overlayImage) {
                 clearInterval(animationInterval);
-                overlayImage.style.display = 'none'; // Hide after animation stops
+                overlayImage.src = mascotFrames[0]; // Set to the first frame
             }
         }
 
@@ -205,8 +173,10 @@
             recognition.onresult = function(event) {
                 const spokenText = event.results[0][0].transcript.toLowerCase();
 
-                if (spokenText === 'where am i' || spokenText === 'what is my location') {
-                    speak(You are at ${currentLocationName});
+                if (spokenText === 'where am i') {
+                    speak(`You are at ${currentLocationName}`);
+                } else if (spokenText === 'what is my location') {
+                    speak(`You are at ${currentLocationName}`);
                 }
             };
 
@@ -231,7 +201,6 @@
         const speakButton = document.getElementById('speakButton');
         const scannerButton = document.getElementById('scannerButton');
         const mapContainer = document.getElementById('map');
-        const loadingAnimation = document.getElementById('loadingAnimation');
 
         openCameraButton.addEventListener('click', function() {
             navigator.mediaDevices.getUserMedia({
@@ -258,7 +227,7 @@
                     overlayImage.src = 'mascot.png';
                     document.body.appendChild(overlayImage);
                 } else {
-                    overlayImage.style.display = 'block';
+                    overlayImage.style.display = 'block'; // Ensure the mascot image is visible
                 }
 
                 mapContainer.style.display = 'none';
@@ -266,7 +235,7 @@
                 openCameraButton.style.display = 'none';
                 backToMapButton.style.display = 'block';
                 speakButton.style.display = 'block';
-                scannerButton.style.display = 'block';
+                scannerButton.style.display = 'block'; // Show Scanner button
 
                 videoStream = stream;
             })
@@ -284,13 +253,11 @@
 
         scannerButton.addEventListener('click', async function() {
             if (videoElement) {
-                showLoadingAnimation();
                 const predictions = await detectObjects(videoElement);
-                hideLoadingAnimation();
 
                 if (predictions.length > 0) {
-                    const details = predictions.map(pred => Detected ${pred.class} with confidence ${Math.round(pred.score * 100)}%).join(', ');
-                    speak(The following objects were detected: ${details});
+                    const details = predictions.map(pred => `Detected ${pred.class} with confidence ${Math.round(pred.score * 100)}%`).join(', ');
+                    speak(`The following objects were detected: ${details}`);
                 } else {
                     speak('No objects detected.');
                 }
@@ -323,7 +290,7 @@
 
             const overlayImage = document.getElementById('overlayImage');
             if (overlayImage) {
-                overlayImage.style.display = 'none';
+                overlayImage.style.display = 'none'; // Hide mascot image when not needed
             }
 
             mapContainer.style.display = 'block';
@@ -332,16 +299,8 @@
             openCameraButton.style.display = 'block';
             backToMapButton.style.display = 'none';
             speakButton.style.display = 'none';
-            scannerButton.style.display = 'none';
+            scannerButton.style.display = 'none'; // Hide Scanner button
         });
-
-        function showLoadingAnimation() {
-            loadingAnimation.style.display = 'block';
-        }
-
-        function hideLoadingAnimation() {
-            loadingAnimation.style.display = 'none';
-        }
     </script>
 </body>
 </html>
