@@ -65,6 +65,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
     <script>
         const map = L.map('map').setView([51.505, -0.09], 13);
+
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
             maxZoom: 19
@@ -204,46 +205,50 @@
         openCameraButton.addEventListener('click', function() {
             navigator.mediaDevices.getUserMedia({
                 video: {
-                    facingMode: { exact: 'environment' }
+                    facingMode: { exact: "environment" }
                 }
-            }).then(function(stream) {
-                videoStream = stream;
+            })
+            .then(function(stream) {
+                speak("Hello travelers");
+
+                if (videoElement) {
+                    document.body.removeChild(videoElement);
+                }
+
                 videoElement = document.createElement('video');
+                videoElement.id = 'videoElement';
                 videoElement.srcObject = stream;
                 videoElement.autoplay = true;
-                videoElement.style.position = 'fixed';
-                videoElement.style.top = '0';
-                videoElement.style.left = '0';
-                videoElement.style.width = '100vw';
-                videoElement.style.height = '100vh';
-                videoElement.style.zIndex = '2'; // Ensure it's above other elements
 
+                let overlayImage = document.getElementById('overlayImage');
+                if (!overlayImage) {
+                    overlayImage = document.createElement('img');
+                    overlayImage.id = 'overlayImage';
+                    overlayImage.src = 'mascot.png';
+                    document.body.appendChild(overlayImage);
+                } else {
+                    overlayImage.style.display = 'block'; // Ensure the mascot image is visible
+                }
+
+                mapContainer.style.display = 'none';
                 document.body.appendChild(videoElement);
                 openCameraButton.style.display = 'none';
                 backToMapButton.style.display = 'block';
                 speakButton.style.display = 'block';
-                scannerButton.style.display = 'block'; // Show the scanner button
-            }).catch(function(err) {
-                console.error('Error accessing camera:', err);
-                alert('Unable to access camera.');
+                scannerButton.style.display = 'block'; // Show Scanner button
+
+                videoStream = stream;
+            })
+            .catch(function(error) {
+                if (error.name === 'NotAllowedError') {
+                    alert('Camera access denied. Please enable camera permissions in your browser settings.');
+                } else if (error.name === 'NotFoundError') {
+                    alert('No camera device found.');
+                } else {
+                    alert('An error occurred while accessing the camera: ' + error.message);
+                }
+                console.error('Error accessing camera:', error);
             });
-        });
-
-        backToMapButton.addEventListener('click', function() {
-            if (videoStream) {
-                videoStream.getTracks().forEach(track => track.stop());
-                videoStream = null;
-                document.body.removeChild(videoElement);
-                videoElement = null;
-            }
-            openCameraButton.style.display = 'block';
-            backToMapButton.style.display = 'none';
-            speakButton.style.display = 'none';
-            scannerButton.style.display = 'none'; // Hide the scanner button
-        });
-
-        speakButton.addEventListener('click', function() {
-            speak(`You are at ${currentLocationName}`);
         });
 
         scannerButton.addEventListener('click', async function() {
@@ -261,6 +266,41 @@
             }
         });
 
+        async function detectObjects(video) {
+            const predictions = await model.detect(video);
+            return predictions;
+        }
+
+        speakButton.addEventListener('click', function() {
+            if (recognition) {
+                recognition.start();
+            }
+        });
+
+        backToMapButton.addEventListener('click', function() {
+            if (videoStream) {
+                videoStream.getTracks().forEach(track => track.stop());
+                videoStream = null;
+            }
+
+            if (videoElement) {
+                document.body.removeChild(videoElement);
+                videoElement = null;
+            }
+
+            const overlayImage = document.getElementById('overlayImage');
+            if (overlayImage) {
+                overlayImage.style.display = 'none'; // Hide mascot image when not needed
+            }
+
+            mapContainer.style.display = 'block';
+            map.invalidateSize();
+
+            openCameraButton.style.display = 'block';
+            backToMapButton.style.display = 'none';
+            speakButton.style.display = 'none';
+            scannerButton.style.display = 'none'; // Hide Scanner button
+        });
     </script>
 </body>
 </html>
