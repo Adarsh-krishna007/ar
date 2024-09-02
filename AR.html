@@ -253,23 +253,27 @@
 
         scannerButton.addEventListener('click', async function() {
             if (videoElement) {
-                const predictions = await detectObjects(videoElement);
+                const canvas = document.createElement('canvas');
+                canvas.width = videoElement.videoWidth;
+                canvas.height = videoElement.videoHeight;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(videoElement, 0, 0);
+                const dataURL = canvas.toDataURL('image/jpeg');
 
-                if (predictions.length > 0) {
-                    const details = predictions.map(pred => `Detected ${pred.class} with confidence ${Math.round(pred.score * 100)}%`).join(', ');
-                    speak(`The following objects were detected: ${details}`);
-                } else {
-                    speak('No objects detected.');
-                }
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: JSON.stringify({ file: dataURL }),
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const result = await response.json();
+                speak(`Detected: ${result.result}`);
             } else {
                 speak('No video feed available.');
             }
         });
-
-        async function detectObjects(video) {
-            const predictions = await model.detect(video);
-            return predictions;
-        }
 
         speakButton.addEventListener('click', function() {
             if (recognition) {
