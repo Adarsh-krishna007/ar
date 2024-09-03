@@ -83,6 +83,7 @@
             'mascot (3).png',
             'mascot (4).png'
         ];
+        let currentLocation = { lat: null, lng: null };
         let currentLocationName = 'Unknown location';
 
         const API_KEY = "AIzaSyA8G9qjD6f_xTOX1KNbLfqiPVeWXVnL7hI"; // Update with your API key
@@ -100,6 +101,7 @@
         map.on('locationfound', function(e) {
             const latlng = e.latlng;
             const radius = e.accuracy / 2;
+            currentLocation = { lat: latlng.lat, lng: latlng.lng };
 
             L.marker(latlng).addTo(map)
                 .bindPopup("You are within " + radius + " meters from this point").openPopup();
@@ -185,10 +187,11 @@
                 const data = await response.json();
                 if (!response.ok) throw new Error(data.error.message);
 
-                return data?.candidates[0].content.parts[0].text.replace(/\*\*(.*?)\*\*/g, '$1');
+                const aiResponse = data?.candidates[0].content.parts[0].text.replace(/\*\*(.*?)\*\*/g, '$1');
+                return `${aiResponse} You are currently at ${currentLocationName}.`;
             } catch (error) {
                 console.error('Gemini API error:', error);
-                return 'Error fetching response from Gemini AI.';
+                return `Error fetching response from Gemini AI. You are currently at ${currentLocationName}.`;
             }
         }
 
@@ -263,13 +266,6 @@
                 videoStream = stream;
             })
             .catch(function(error) {
-                if (error.name === 'NotAllowedError') {
-                    alert('Camera access denied. Please enable camera permissions in your browser settings.');
-                } else if (error.name === 'NotFoundError') {
-                    alert('No camera device found.');
-                } else {
-                    alert('An error occurred while accessing the camera: ' + error.message);
-                }
                 console.error('Camera access error:', error);
             });
         });
