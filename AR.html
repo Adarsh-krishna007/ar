@@ -84,7 +84,11 @@
             'mascot (4).png'
         ];
         let currentLocation = { lat: null, lng: null };
-        let currentLocationName = 'Unknown location';
+        let landmarks = {
+            'Taj Mahal': { lat: 27.1751, lng: 78.0421 },
+            'Eiffel Tower': { lat: 48.8584, lng: 2.2945 },
+            'Statue of Liberty': { lat: 40.6892, lng: -74.0469 }
+        };
 
         const API_KEY = "AIzaSyA8G9qjD6f_xTOX1KNbLfqiPVeWXVnL7hI"; // Update with your API key
         const API_URL = `https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${API_KEY}`;
@@ -107,27 +111,40 @@
                 .bindPopup("You are within " + radius + " meters from this point").openPopup();
 
             L.circle(latlng, radius).addTo(map);
-
-            fetchLocationName(latlng.lat, latlng.lng)
-                .then(locationName => {
-                    currentLocationName = locationName;
-                })
-                .catch(error => {
-                    console.error('Error fetching location name:', error);
-                    currentLocationName = 'Unknown location';
-                });
         });
 
         map.on('locationerror', function(e) {
             speak('Location access denied or not available.');
         });
 
-        function fetchLocationName(lat, lon) {
-            return fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`)
-                .then(response => response.json())
-                .then(data => {
-                    return data.display_name || 'Unknown location';
-                });
+        function getNearestLandmark(lat, lon) {
+            let nearestLandmark = null;
+            let minDistance = Infinity;
+
+            for (const [landmark, coords] of Object.entries(landmarks)) {
+                const distance = getDistance(lat, lon, coords.lat, coords.lng);
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    nearestLandmark = landmark;
+                }
+            }
+
+            return nearestLandmark || 'No landmarks found nearby.';
+        }
+
+        function getDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371; // Radius of the Earth in km
+            const dLat = toRad(lat2 - lat1);
+            const dLon = toRad(lon2 - lon1);
+            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+                      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return R * c; // Distance in km
+        }
+
+        function toRad(degrees) {
+            return degrees * (Math.PI / 180);
         }
 
         function speak(text) {
@@ -188,10 +205,10 @@
                 if (!response.ok) throw new Error(data.error.message);
 
                 const aiResponse = data?.candidates[0].content.parts[0].text.replace(/\*\*(.*?)\*\*/g, '$1');
-                return `${aiResponse} You are currently at ${currentLocationName}.`;
+                return aiResponse;
             } catch (error) {
                 console.error('Gemini API error:', error);
-                return `Error fetching response from Gemini AI. You are currently at ${currentLocationName}.`;
+                return `Error fetching response from Gemini AI.`;
             }
         }
 
@@ -201,7 +218,13 @@
 
             recognition.onresult = async function(event) {
                 const spokenText = event.results[0][0].transcript;
-                const geminiResponse = await fetchGeminiResponse(spokenText);
+
+                let geminiResponse = await fetchGeminiResponse(spokenText);
+
+                if (spokenText.toLowerCase().includes('nearest landmark')) {
+                    const nearestLandmark = getNearestLandmark(currentLocation.lat, currentLocation.lng);
+                    geminiResponse = `The nearest landmark is ${nearestLandmark}.`;
+                }
 
                 speak(geminiResponse);
             };
@@ -229,45 +252,29 @@
         const mapContainer = document.getElementById('map');
 
         openCameraButton.addEventListener('click', function() {
-            navigator.mediaDevices.getUserMedia({
-                video: {
-                    facingMode: { exact: "environment" }
-                }
-            })
-            .then(function(stream) {
-                speak("Hello travelers");
+            navigator.mediaDevices.getUserMedia({ video: true })
+                .then(function(stream) {
+                    videoElement = document.createElement('video');
+                    videoElement.autoplay = true;
+                    videoElement.style.position = 'fixed';
+                    videoElement.style.top = '0';
+                    videoElement.style.left = '0';
+                    videoElement.style.width = '100%';
+                    videoElement.style.height = '100%';
+                    document.body.appendChild(videoElement);
 
-                if (videoElement) {
-                    document.body.removeChild(videoElement);
-                }
+                    videoStream = stream;
+                    videoElement.srcObject = stream;
 
-                videoElement = document.createElement('video');
-                videoElement.id = 'videoElement';
-                videoElement.srcObject = stream;
-                videoElement.autoplay = true;
-
-                let overlayImage = document.getElementById('overlayImage');
-                if (!overlayImage) {
-                    overlayImage = document.createElement('img');
-                    overlayImage.id = 'overlayImage';
-                    overlayImage.src = 'mascot.png';
-                    document.body.appendChild(overlayImage);
-                } else {
-                    overlayImage.style.display = 'block';
-                }
-
-                mapContainer.style.display = 'none';
-                document.body.appendChild(videoElement);
-                openCameraButton.style.display = 'none';
-                backToMapButton.style.display = 'block';
-                speakButton.style.display = 'block';
-                scannerButton.style.display = 'block';
-
-                videoStream = stream;
-            })
-            .catch(function(error) {
-                console.error('Camera access error:', error);
-            });
+                    mapContainer.style.display = 'none';
+                    openCameraButton.style.display = 'none';
+                    backToMapButton.style.display = 'block';
+                    speakButton.style.display = 'block';
+                    scannerButton.style.display = 'block';
+                })
+                .catch(function(error) {
+                    console.error('Camera access error:', error);
+                });
         });
 
         backToMapButton.addEventListener('click', function() {
