@@ -1,5 +1,2 @@
-Flask
-tensorflow
-tensorflow-hub
-pandas
-pillow
+flask>=0.12.3
+aiml==0.8.6
