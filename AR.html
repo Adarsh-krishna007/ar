@@ -17,7 +17,7 @@
             z-index: 1;
         }
 
-        #openCameraButton, #backToMapButton, #speakButton, #scannerButton {
+        #openCameraButton, #backToMapButton, #speakButton, #scannerButton, #stopButton {
             position: fixed;
             bottom: 20px;
             z-index: 1000;
@@ -40,6 +40,11 @@
             display: none;
         }
 
+        #stopButton {
+            right: 20px;
+            display: none;
+        }
+
         #overlayImage {
             position: fixed;
             bottom: 40px;
@@ -58,6 +63,7 @@
     <button id="backToMapButton" style="display: none;" aria-label="Back to Map">Back to Map</button>
     <button id="speakButton" aria-label="Speak">Speak</button>
     <button id="scannerButton" aria-label="Scanner">Scanner</button>
+    <button id="stopButton" aria-label="Stop">Stop</button>
     <img id="overlayImage" src="mascot.png" alt="Mascot">
 
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
@@ -65,6 +71,8 @@
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
     <script>
         const map = L.map('map').setView([51.505, -0.09], 13);
+        const API_KEY = "AIzaSyA8G9qjD6f_xTOX1KNbLfqiPVeWXVnL7hI"; // Update with your API key
+        const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${API_KEY}`;
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
@@ -83,15 +91,8 @@
             'mascot (3).png',
             'mascot (4).png'
         ];
-        let currentLocation = { lat: null, lng: null };
-        let landmarks = {
-            'Taj Mahal': { lat: 27.1751, lng: 78.0421 },
-            'Eiffel Tower': { lat: 48.8584, lng: 2.2945 },
-            'Statue of Liberty': { lat: 40.6892, lng: -74.0469 }
-        };
-
-        const API_KEY = "AIzaSyA8G9qjD6f_xTOX1KNbLfqiPVeWXVnL7hI"; // Update with your API key
-        const API_URL = `https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${API_KEY}`;
+        let currentLocationName = 'Unknown location';
+        let speaking = false;
 
         async function loadModel() {
             model = await cocoSsd.load();
@@ -105,66 +106,50 @@
         map.on('locationfound', function(e) {
             const latlng = e.latlng;
             const radius = e.accuracy / 2;
-            currentLocation = { lat: latlng.lat, lng: latlng.lng };
 
             L.marker(latlng).addTo(map)
                 .bindPopup("You are within " + radius + " meters from this point").openPopup();
 
             L.circle(latlng, radius).addTo(map);
+
+            fetchLocationName(latlng.lat, latlng.lng)
+                .then(locationName => {
+                    currentLocationName = locationName;
+                })
+                .catch(error => {
+                    console.error('Error fetching location name:', error);
+                    currentLocationName = 'Unknown location';
+                });
         });
 
         map.on('locationerror', function(e) {
             speak('Location access denied or not available.');
         });
 
-        function getNearestLandmark(lat, lon) {
-            let nearestLandmark = null;
-            let minDistance = Infinity;
-
-            for (const [landmark, coords] of Object.entries(landmarks)) {
-                const distance = getDistance(lat, lon, coords.lat, coords.lng);
-                if (distance < minDistance) {
-                    minDistance = distance;
-                    nearestLandmark = landmark;
-                }
-            }
-
-            return nearestLandmark || 'No landmarks found nearby.';
-        }
-
-        function getDistance(lat1, lon1, lat2, lon2) {
-            const R = 6371; // Radius of the Earth in km
-            const dLat = toRad(lat2 - lat1);
-            const dLon = toRad(lon2 - lon1);
-            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
-                      Math.sin(dLon / 2) * Math.sin(dLon / 2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-            return R * c; // Distance in km
-        }
-
-        function toRad(degrees) {
-            return degrees * (Math.PI / 180);
+        function fetchLocationName(lat, lon) {
+            return fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`)
+                .then(response => response.json())
+                .then(data => data.display_name || 'Unknown location');
         }
 
         function speak(text) {
-            try {
-                const msg = new SpeechSynthesisUtterance(text);
-                msg.lang = 'en-US';
-
-                msg.onstart = function() {
-                    startMascotAnimation();
-                };
-
-                msg.onend = function() {
-                    stopMascotAnimation();
-                };
-
-                window.speechSynthesis.speak(msg);
-            } catch (error) {
-                console.error('Speech synthesis error:', error);
-                alert('Speech synthesis is not supported or encountered an error.');
+            if (speaking) {
+                window.speechSynthesis.cancel();
             }
+            const msg = new SpeechSynthesisUtterance(text);
+            msg.lang = 'en-US';
+            speaking = true;
+
+            msg.onstart = function() {
+                startMascotAnimation();
+            };
+
+            msg.onend = function() {
+                stopMascotAnimation();
+                speaking = false;
+            };
+
+            window.speechSynthesis.speak(msg);
         }
 
         function startMascotAnimation() {
@@ -190,25 +175,33 @@
 
         async function fetchGeminiResponse(userMessage) {
             try {
-                const response = await fetch(API_URL, {
+                const response = await fetch(GEMINI_API_URL, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ 
-                        contents: [{ 
-                            role: "user", 
-                            parts: [{ text: userMessage }] 
-                        }] 
+                    body: JSON.stringify({
+                        contents: [{ role: "user", parts: [{ text: userMessage }] }]
                     }),
                 });
 
                 const data = await response.json();
                 if (!response.ok) throw new Error(data.error.message);
 
-                const aiResponse = data?.candidates[0].content.parts[0].text.replace(/\*\*(.*?)\*\*/g, '$1');
-                return aiResponse;
+                return data?.candidates[0].content.parts[0].text.replace(/\*\*(.*?)\*\*/g, '$1');
             } catch (error) {
                 console.error('Gemini API error:', error);
-                return `Error fetching response from Gemini AI.`;
+                return 'Error fetching response from Gemini AI.';
+            }
+        }
+
+        async function handleUserMessage(userMessage) {
+            if (userMessage.toLowerCase().includes("where am i") || userMessage.toLowerCase().includes("where i am")) {
+                speak(`You are currently at ${currentLocationName}.`);
+            } else if (userMessage.toLowerCase().includes("nearest landmark")) {
+                const landmarkInfo = await fetchGeminiResponse("nearest landmark in Kolkata");
+                speak(landmarkInfo);
+            } else {
+                const geminiResponse = await fetchGeminiResponse(userMessage);
+                speak(geminiResponse);
             }
         }
 
@@ -218,15 +211,7 @@
 
             recognition.onresult = async function(event) {
                 const spokenText = event.results[0][0].transcript;
-
-                let geminiResponse = await fetchGeminiResponse(spokenText);
-
-                if (spokenText.toLowerCase().includes('nearest landmark')) {
-                    const nearestLandmark = getNearestLandmark(currentLocation.lat, currentLocation.lng);
-                    geminiResponse = `The nearest landmark is ${nearestLandmark}.`;
-                }
-
-                speak(geminiResponse);
+                await handleUserMessage(spokenText);
             };
 
             recognition.onerror = function(event) {
@@ -249,32 +234,35 @@
         const backToMapButton = document.getElementById('backToMapButton');
         const speakButton = document.getElementById('speakButton');
         const scannerButton = document.getElementById('scannerButton');
+        const stopButton = document.getElementById('stopButton');
         const mapContainer = document.getElementById('map');
 
         openCameraButton.addEventListener('click', function() {
-            navigator.mediaDevices.getUserMedia({ video: true })
-                .then(function(stream) {
-                    videoElement = document.createElement('video');
-                    videoElement.autoplay = true;
-                    videoElement.style.position = 'fixed';
-                    videoElement.style.top = '0';
-                    videoElement.style.left = '0';
-                    videoElement.style.width = '100%';
-                    videoElement.style.height = '100%';
-                    document.body.appendChild(videoElement);
+            navigator.mediaDevices.getUserMedia({
+                video: { facingMode: { exact: "environment" } }
+            })
+            .then(function(stream) {
+                speak("Hello travelers");
 
-                    videoStream = stream;
-                    videoElement.srcObject = stream;
+                if (videoElement) {
+                    document.body.removeChild(videoElement);
+                }
 
-                    mapContainer.style.display = 'none';
-                    openCameraButton.style.display = 'none';
-                    backToMapButton.style.display = 'block';
-                    speakButton.style.display = 'block';
-                    scannerButton.style.display = 'block';
-                })
-                .catch(function(error) {
-                    console.error('Camera access error:', error);
-                });
+                videoElement = document.createElement('video');
+                videoElement.id = 'videoElement';
+                videoElement.srcObject = stream;
+                videoElement.autoplay = true;
+                document.body.appendChild(videoElement);
+
+                backToMapButton.style.display = 'block';
+                openCameraButton.style.display = 'none';
+                speakButton.style.display = 'block';
+                scannerButton.style.display = 'block';
+            })
+            .catch(function(error) {
+                console.error('Error accessing camera:', error);
+                alert('Unable to access camera.');
+            });
         });
 
         backToMapButton.addEventListener('click', function() {
@@ -284,24 +272,33 @@
                 videoElement = null;
             }
 
-            mapContainer.style.display = 'block';
-            openCameraButton.style.display = 'block';
             backToMapButton.style.display = 'none';
+            openCameraButton.style.display = 'block';
             speakButton.style.display = 'none';
             scannerButton.style.display = 'none';
-            document.getElementById('overlayImage').style.display = 'none';
         });
 
         speakButton.addEventListener('click', function() {
             if (recognition) {
                 recognition.start();
+            } else {
+                console.error('Speech recognition not supported.');
             }
         });
 
-        scannerButton.addEventListener('click', function() {
+        scannerButton.addEventListener('click', async function() {
             if (videoElement) {
-                // Implement scanning functionality here
-                alert('Scanner button clicked!');
+                const predictions = await model.detect(videoElement);
+                console.log(predictions);
+                // Handle predictions and provide info
+            }
+        });
+
+        stopButton.addEventListener('click', function() {
+            if (window.speechSynthesis.speaking) {
+                window.speechSynthesis.cancel();
+                stopMascotAnimation();
+                speaking = false;
             }
         });
     </script>
