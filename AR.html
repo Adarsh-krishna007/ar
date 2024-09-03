@@ -50,15 +50,6 @@
             background-size: cover;
             display: none;
         }
-
-        #loading {
-            display: none;
-            position: fixed;
-            bottom: 70px;
-            right: 20px;
-            font-size: 18px;
-            color: #007bff;
-        }
     </style>
 </head>
 <body>
@@ -68,7 +59,6 @@
     <button id="speakButton" aria-label="Speak">Speak</button>
     <button id="scannerButton" aria-label="Scanner">Scanner</button>
     <img id="overlayImage" src="mascot.png" alt="Mascot">
-    <div id="loading">Loading...</div>
 
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
@@ -94,6 +84,9 @@
             'mascot (4).png'
         ];
         let currentLocationName = 'Unknown location';
+
+        const API_KEY = "AIzaSyA8G9qjD6f_xTOX1KNbLfqiPVeWXVnL7hI"; // Update with your API key
+        const API_URL = `https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${API_KEY}`;
 
         async function loadModel() {
             model = await cocoSsd.load();
@@ -176,17 +169,38 @@
             }
         }
 
+        async function fetchGeminiResponse(userMessage) {
+            try {
+                const response = await fetch(API_URL, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ 
+                        contents: [{ 
+                            role: "user", 
+                            parts: [{ text: userMessage }] 
+                        }] 
+                    }),
+                });
+
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error.message);
+
+                return data?.candidates[0].content.parts[0].text.replace(/\*\*(.*?)\*\*/g, '$1');
+            } catch (error) {
+                console.error('Gemini API error:', error);
+                return 'Error fetching response from Gemini AI.';
+            }
+        }
+
         if ('webkitSpeechRecognition' in window) {
             recognition = new webkitSpeechRecognition();
             recognition.lang = 'en-US';
 
-            recognition.onresult = function(event) {
-                const spokenText = event.results[0][0].transcript.toLowerCase();
-                addChatMessage("User", spokenText); // Add user message to chat
+            recognition.onresult = async function(event) {
+                const spokenText = event.results[0][0].transcript;
+                const geminiResponse = await fetchGeminiResponse(spokenText);
 
-                if (spokenText) {
-                    sendChatMessage(spokenText); // Send to OpenAI API
-                }
+                speak(geminiResponse);
             };
 
             recognition.onerror = function(event) {
@@ -256,46 +270,17 @@
                 } else {
                     alert('An error occurred while accessing the camera: ' + error.message);
                 }
-                console.error('Error accessing camera:', error);
+                console.error('Camera access error:', error);
             });
         });
 
-        scannerButton.addEventListener('click', async function() {
-            if (videoElement) {
-                const predictions = await detectObjects(videoElement);
-
-                if (predictions.length > 0) {
-                    const details = predictions.map(pred => `Detected ${pred.class} with confidence ${Math.round(pred.score * 100)}%`).join(', ');
-                    speak(`The following objects were detected: ${details}`);
-                } else {
-                    speak('No objects detected.');
-                }
-            } else {
-                speak('No video feed available.');
-            }
-        });
-
-        async function detectObjects(video) {
-            if (model && video) {
-                const predictions = await model.detect(video);
-                return predictions;
-            } else {
-                console.warn('Model or video element not available.');
-                return [];
-            }
-        }
-
         backToMapButton.addEventListener('click', function() {
-            speak('Returning to the map.');
-            if (videoStream) {
-                const tracks = videoStream.getTracks();
-                tracks.forEach(track => track.stop());
-                videoStream = null;
-            }
             if (videoElement) {
+                videoElement.srcObject.getTracks().forEach(track => track.stop());
                 document.body.removeChild(videoElement);
                 videoElement = null;
             }
+
             mapContainer.style.display = 'block';
             openCameraButton.style.display = 'block';
             backToMapButton.style.display = 'none';
@@ -307,50 +292,15 @@
         speakButton.addEventListener('click', function() {
             if (recognition) {
                 recognition.start();
-            } else {
-                alert('Speech recognition is not supported in this browser.');
             }
         });
 
-        const cache = {};
-
-        const OPENAI_API_KEY = "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"; // Add your OpenAI API key here
-        const OPENAI_API_ENDPOINT = "https://api.openai.com/v1/engines/text-davinci-003/completions";
-
-        function addChatMessage(sender, message) {
-            console.log(`${sender}: ${message}`); // Log the chat message (replace with UI update if needed)
-        }
-
-        function sendChatMessage(message) {
-            const loadingElement = document.getElementById("loading");
-            loadingElement.style.display = "block";
-
-            fetch(OPENAI_API_ENDPOINT, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${OPENAI_API_KEY}`,
-                },
-                body: JSON.stringify({
-                    prompt: `Q: ${message}\nA: `,
-                    max_tokens: 600,
-                    temperature: 0.6,
-                    stop: ["\n"],
-                }),
-            })
-            .then((response) => response.json())
-            .then((data) => {
-                const chatbotResponse = data.choices[0].text.trim();
-                addChatMessage("AI", chatbotResponse);
-                speak(chatbotResponse);
-                loadingElement.style.display = "none";
-            })
-            .catch((error) => {
-                console.error(error);
-                addChatMessage("AI", "Sorry, I was unable to process your request.");
-                loadingElement.style.display = "none";
-            });
-        }
+        scannerButton.addEventListener('click', function() {
+            if (videoElement) {
+                // Implement scanning functionality here
+                alert('Scanner button clicked!');
+            }
+        });
     </script>
 </body>
 </html>
