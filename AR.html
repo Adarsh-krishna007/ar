@@ -322,6 +322,7 @@
             window.speechSynthesis.cancel();
             stopButton.style.display = 'none';
             speakButton.style.display = 'block';
+            stopMascotAnimation();
         });
 
         scannerButton.addEventListener('click', async function() {
