@@ -31,13 +31,13 @@
         }
 
         #speakButton {
-            right: 150px; /* Adjust position to avoid overlap with other buttons */
-            display: none; /* Initially hidden */
+            right: 150px;
+            display: none;
         }
 
         #scannerButton {
-            right: 20px; /* Position near the bottom-right corner */
-            display: none; /* Initially hidden */
+            right: 20px;
+            display: none;
         }
 
         #overlayImage {
@@ -48,7 +48,16 @@
             width: 200px;
             height: 200px;
             background-size: cover;
-            display: none; /* Initially hidden */
+            display: none;
+        }
+
+        #loading {
+            display: none;
+            position: fixed;
+            bottom: 70px;
+            right: 20px;
+            font-size: 18px;
+            color: #007bff;
         }
     </style>
 </head>
@@ -59,6 +68,7 @@
     <button id="speakButton" aria-label="Speak">Speak</button>
     <button id="scannerButton" aria-label="Scanner">Scanner</button>
     <img id="overlayImage" src="mascot.png" alt="Mascot">
+    <div id="loading">Loading...</div>
 
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
@@ -83,7 +93,7 @@
             'mascot (3).png',
             'mascot (4).png'
         ];
-        let currentLocationName = 'Unknown location'; // Store location name
+        let currentLocationName = 'Unknown location';
 
         async function loadModel() {
             model = await cocoSsd.load();
@@ -105,11 +115,11 @@
 
             fetchLocationName(latlng.lat, latlng.lng)
                 .then(locationName => {
-                    currentLocationName = locationName; // Update current location name
+                    currentLocationName = locationName;
                 })
                 .catch(error => {
                     console.error('Error fetching location name:', error);
-                    currentLocationName = 'Unknown location'; // Fallback location name
+                    currentLocationName = 'Unknown location';
                 });
         });
 
@@ -131,11 +141,11 @@
                 msg.lang = 'en-US';
 
                 msg.onstart = function() {
-                    startMascotAnimation(); // Start animation when speaking
+                    startMascotAnimation();
                 };
 
                 msg.onend = function() {
-                    stopMascotAnimation(); // Stop animation when done
+                    stopMascotAnimation();
                 };
 
                 window.speechSynthesis.speak(msg);
@@ -150,11 +160,11 @@
             if (overlayImage) {
                 mascotFrameIndex = 0;
                 overlayImage.src = mascotFrames[mascotFrameIndex];
-                overlayImage.style.display = 'block'; // Ensure the mascot image is visible
+                overlayImage.style.display = 'block';
                 animationInterval = setInterval(() => {
                     mascotFrameIndex = (mascotFrameIndex + 1) % mascotFrames.length;
                     overlayImage.src = mascotFrames[mascotFrameIndex];
-                }, 200); // Change frame every 200ms
+                }, 200);
             }
         }
 
@@ -162,7 +172,7 @@
             const overlayImage = document.getElementById('overlayImage');
             if (overlayImage) {
                 clearInterval(animationInterval);
-                overlayImage.src = mascotFrames[0]; // Set to the first frame
+                overlayImage.src = mascotFrames[0];
             }
         }
 
@@ -172,11 +182,10 @@
 
             recognition.onresult = function(event) {
                 const spokenText = event.results[0][0].transcript.toLowerCase();
+                addChatMessage("User", spokenText); // Add user message to chat
 
-                if (spokenText === 'where am i') {
-                    speak(`You are at ${currentLocationName}`);
-                } else if (spokenText === 'what is my location') {
-                    speak(`You are at ${currentLocationName}`);
+                if (spokenText) {
+                    sendChatMessage(spokenText); // Send to OpenAI API
                 }
             };
 
@@ -227,7 +236,7 @@
                     overlayImage.src = 'mascot.png';
                     document.body.appendChild(overlayImage);
                 } else {
-                    overlayImage.style.display = 'block'; // Ensure the mascot image is visible
+                    overlayImage.style.display = 'block';
                 }
 
                 mapContainer.style.display = 'none';
@@ -235,7 +244,7 @@
                 openCameraButton.style.display = 'none';
                 backToMapButton.style.display = 'block';
                 speakButton.style.display = 'block';
-                scannerButton.style.display = 'block'; // Show Scanner button
+                scannerButton.style.display = 'block';
 
                 videoStream = stream;
             })
@@ -267,40 +276,81 @@
         });
 
         async function detectObjects(video) {
-            const predictions = await model.detect(video);
-            return predictions;
+            if (model && video) {
+                const predictions = await model.detect(video);
+                return predictions;
+            } else {
+                console.warn('Model or video element not available.');
+                return [];
+            }
         }
 
-        speakButton.addEventListener('click', function() {
-            if (recognition) {
-                recognition.start();
-            }
-        });
-
         backToMapButton.addEventListener('click', function() {
+            speak('Returning to the map.');
             if (videoStream) {
-                videoStream.getTracks().forEach(track => track.stop());
+                const tracks = videoStream.getTracks();
+                tracks.forEach(track => track.stop());
                 videoStream = null;
             }
-
             if (videoElement) {
                 document.body.removeChild(videoElement);
                 videoElement = null;
             }
-
-            const overlayImage = document.getElementById('overlayImage');
-            if (overlayImage) {
-                overlayImage.style.display = 'none'; // Hide mascot image when not needed
-            }
-
             mapContainer.style.display = 'block';
-            map.invalidateSize();
-
             openCameraButton.style.display = 'block';
             backToMapButton.style.display = 'none';
             speakButton.style.display = 'none';
-            scannerButton.style.display = 'none'; // Hide Scanner button
+            scannerButton.style.display = 'none';
+            document.getElementById('overlayImage').style.display = 'none';
         });
+
+        speakButton.addEventListener('click', function() {
+            if (recognition) {
+                recognition.start();
+            } else {
+                alert('Speech recognition is not supported in this browser.');
+            }
+        });
+
+        const cache = {};
+
+        const OPENAI_API_KEY = "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"; // Add your OpenAI API key here
+        const OPENAI_API_ENDPOINT = "https://api.openai.com/v1/engines/text-davinci-003/completions";
+
+        function addChatMessage(sender, message) {
+            console.log(`${sender}: ${message}`); // Log the chat message (replace with UI update if needed)
+        }
+
+        function sendChatMessage(message) {
+            const loadingElement = document.getElementById("loading");
+            loadingElement.style.display = "block";
+
+            fetch(OPENAI_API_ENDPOINT, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${OPENAI_API_KEY}`,
+                },
+                body: JSON.stringify({
+                    prompt: `Q: ${message}\nA: `,
+                    max_tokens: 600,
+                    temperature: 0.6,
+                    stop: ["\n"],
+                }),
+            })
+            .then((response) => response.json())
+            .then((data) => {
+                const chatbotResponse = data.choices[0].text.trim();
+                addChatMessage("AI", chatbotResponse);
+                speak(chatbotResponse);
+                loadingElement.style.display = "none";
+            })
+            .catch((error) => {
+                console.error(error);
+                addChatMessage("AI", "Sorry, I was unable to process your request.");
+                loadingElement.style.display = "none";
+            });
+        }
     </script>
 </body>
 </html>
