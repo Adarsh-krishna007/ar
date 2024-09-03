@@ -313,7 +313,9 @@
         });
 
         speakButton.addEventListener('click', function() {
-            speak('Hello! How can I assist you today?');
+            if (recognition) {
+                recognition.start();
+            }
         });
 
         stopButton.addEventListener('click', function() {
