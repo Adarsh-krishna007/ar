@@ -32,15 +32,16 @@
 
         #speakButton {
             right: 150px;
-        }
-
-        #stopButton {
-            right: 150px;
             display: none;
         }
 
         #scannerButton {
             right: 20px;
+            display: none;
+        }
+
+        #stopButton {
+            right: 150px;
             display: none;
         }
 
@@ -61,8 +62,8 @@
     <button id="openCameraButton" aria-label="Open Camera">Open Camera</button>
     <button id="backToMapButton" style="display: none;" aria-label="Back to Map">Back to Map</button>
     <button id="speakButton" aria-label="Speak">Speak</button>
-    <button id="stopButton" aria-label="Stop">Stop</button>
     <button id="scannerButton" aria-label="Scanner">Scanner</button>
+    <button id="stopButton" aria-label="Stop">Stop</button>
     <img id="overlayImage" src="mascot.png" alt="Mascot">
 
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
@@ -90,7 +91,7 @@
         ];
         let currentLocationName = 'Unknown location';
 
-        const API_KEY = "YOUR_API_KEY"; // Replace with your actual API key
+        const API_KEY = "YOUR_API_KEY"; // Update with your API key
         const API_URL = `https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${API_KEY}`;
 
         async function loadModel() {
@@ -175,7 +176,6 @@
             if (overlayImage) {
                 clearInterval(animationInterval);
                 overlayImage.src = mascotFrames[0];
-                overlayImage.style.display = 'none';
             }
         }
 
@@ -208,11 +208,10 @@
 
             recognition.onresult = async function(event) {
                 const spokenText = event.results[0][0].transcript;
-
-                if (/where\s*am\s*i|where\s*i\s*am/i.test(spokenText)) {
-                    speak(`You are at ${currentLocationName}.`);
-                } else if (/nearest\s*landmark/i.test(spokenText)) {
-                    const geminiResponse = await fetchGeminiResponse('Tell me some landmarks in Kolkata.');
+                if (spokenText.toLowerCase().includes('where am i') || spokenText.toLowerCase().includes('where i am')) {
+                    speak(`You are currently at ${currentLocationName}`);
+                } else if (spokenText.toLowerCase().includes('nearest landmark')) {
+                    const geminiResponse = await fetchGeminiResponse('Tell me some landmarks in Kolkata');
                     speak(geminiResponse);
                 } else {
                     const geminiResponse = await fetchGeminiResponse(spokenText);
@@ -265,70 +264,73 @@
                 if (!overlayImage) {
                     overlayImage = document.createElement('img');
                     overlayImage.id = 'overlayImage';
-                    overlayImage.src = 'mascot.png';
+                    overlayImage.src = mascotFrames[0];
                     overlayImage.alt = 'Mascot';
                     document.body.appendChild(overlayImage);
+                } else {
+                    overlayImage.style.display = 'block';
                 }
 
-                overlayImage.style.display = 'none';
-
+                videoStream = stream;
                 document.body.appendChild(videoElement);
-                mapContainer.style.display = 'none';
+
                 openCameraButton.style.display = 'none';
                 backToMapButton.style.display = 'block';
                 scannerButton.style.display = 'block';
+                speakButton.style.display = 'block';
+                mapContainer.style.display = 'none';
 
-                videoStream = stream;
+                if (recognition) {
+                    recognition.start();
+                }
             })
-            .catch(function(err) {
-                console.error('Error accessing camera:', err);
+            .catch(function(error) {
+                console.error('Error accessing the camera: ', error);
+                alert('Error accessing the camera: ' + error.message);
             });
         });
 
         backToMapButton.addEventListener('click', function() {
-            if (videoStream) {
+            if (videoElement) {
                 const tracks = videoStream.getTracks();
                 tracks.forEach(track => track.stop());
-                videoStream = null;
-            }
 
-            if (videoElement) {
                 document.body.removeChild(videoElement);
                 videoElement = null;
             }
 
-            mapContainer.style.display = 'block';
             openCameraButton.style.display = 'block';
             backToMapButton.style.display = 'none';
             scannerButton.style.display = 'none';
-        });
+            speakButton.style.display = 'none';
+            stopButton.style.display = 'none';
+            document.getElementById('overlayImage').style.display = 'none';
+            mapContainer.style.display = 'block';
 
-        scannerButton.addEventListener('click', async function() {
-            if (!videoElement || !model) {
-                alert('Camera or model not ready.');
-                return;
-            }
-
-            const predictions = await model.detect(videoElement);
-            if (predictions.length > 0) {
-                const detectedObject = predictions[0].class;
-                speak(`I see a ${detectedObject}`);
-            } else {
-                speak("No objects detected.");
+            if (recognition) {
+                recognition.stop();
             }
         });
 
         speakButton.addEventListener('click', function() {
-            if (recognition) {
-                recognition.start();
-            }
+            speak('Hello! How can I assist you today?');
         });
 
         stopButton.addEventListener('click', function() {
-            if (window.speechSynthesis.speaking) {
-                window.speechSynthesis.cancel();
-                stopButton.style.display = 'none';
-                speakButton.style.display = 'block';
+            window.speechSynthesis.cancel();
+            stopButton.style.display = 'none';
+            speakButton.style.display = 'block';
+        });
+
+        scannerButton.addEventListener('click', async function() {
+            if (videoElement && videoElement.readyState === 4) {
+                const predictions = await model.detect(videoElement);
+                if (predictions.length > 0) {
+                    const detectedObject = predictions[0].class;
+                    speak(`Object detected: ${detectedObject}`);
+                } else {
+                    speak('No objects detected.');
+                }
             }
         });
     </script>
