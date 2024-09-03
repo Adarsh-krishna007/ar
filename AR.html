@@ -41,7 +41,7 @@
         }
 
         #stopButton {
-            right: 20px;
+            right: 120px; /* Adjusted to make sure it's visible */
             display: none;
         }
 
@@ -254,10 +254,12 @@
                 videoElement.autoplay = true;
                 document.body.appendChild(videoElement);
 
+                mapContainer.style.display = 'none';
                 backToMapButton.style.display = 'block';
                 openCameraButton.style.display = 'none';
                 speakButton.style.display = 'block';
                 scannerButton.style.display = 'block';
+                stopButton.style.display = 'block';
             })
             .catch(function(error) {
                 console.error('Error accessing camera:', error);
@@ -272,10 +274,12 @@
                 videoElement = null;
             }
 
+            mapContainer.style.display = 'block';
             backToMapButton.style.display = 'none';
             openCameraButton.style.display = 'block';
             speakButton.style.display = 'none';
             scannerButton.style.display = 'none';
+            stopButton.style.display = 'none';
         });
 
         speakButton.addEventListener('click', function() {
@@ -291,6 +295,13 @@
                 const predictions = await model.detect(videoElement);
                 console.log(predictions);
                 // Handle predictions and provide info
+                if (predictions.length > 0) {
+                    speak(`Detected ${predictions.length} objects.`);
+                } else {
+                    speak('No objects detected.');
+                }
+            } else {
+                alert('Camera is not active.');
             }
         });
 
