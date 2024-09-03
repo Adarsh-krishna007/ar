@@ -212,7 +212,7 @@
                 if (/where\s*am\s*i|where\s*i\s*am/i.test(spokenText)) {
                     speak(`You are at ${currentLocationName}.`);
                 } else if (/nearest\s*landmark/i.test(spokenText)) {
-                    const geminiResponse = await fetchGeminiResponse('Tell me the nearest landmark in Kolkata.');
+                    const geminiResponse = await fetchGeminiResponse('Tell me some landmarks in Kolkata.');
                     speak(geminiResponse);
                 } else {
                     const geminiResponse = await fetchGeminiResponse(spokenText);
