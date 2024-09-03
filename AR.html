@@ -32,15 +32,14 @@
 
         #speakButton {
             right: 150px;
+        }
+
+        #stopButton {
+            right: 150px;
             display: none;
         }
 
         #scannerButton {
-            right: 20px;
-            display: none;
-        }
-
-        #stopButton {
             right: 20px;
             display: none;
         }
@@ -62,8 +61,8 @@
     <button id="openCameraButton" aria-label="Open Camera">Open Camera</button>
     <button id="backToMapButton" style="display: none;" aria-label="Back to Map">Back to Map</button>
     <button id="speakButton" aria-label="Speak">Speak</button>
-    <button id="scannerButton" aria-label="Scanner">Scanner</button>
     <button id="stopButton" aria-label="Stop">Stop</button>
+    <button id="scannerButton" aria-label="Scanner">Scanner</button>
     <img id="overlayImage" src="mascot.png" alt="Mascot">
 
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
@@ -91,7 +90,7 @@
         ];
         let currentLocationName = 'Unknown location';
 
-        const API_KEY = "AIzaSyA8G9qjD6f_xTOX1KNbLfqiPVeWXVnL7hI"; // Update with your API key
+        const API_KEY = "YOUR_API_KEY"; // Replace with your actual API key
         const API_URL = `https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${API_KEY}`;
 
         async function loadModel() {
@@ -141,10 +140,14 @@
 
                 msg.onstart = function() {
                     startMascotAnimation();
+                    speakButton.style.display = 'none';
+                    stopButton.style.display = 'block';
                 };
 
                 msg.onend = function() {
                     stopMascotAnimation();
+                    stopButton.style.display = 'none';
+                    speakButton.style.display = 'block';
                 };
 
                 window.speechSynthesis.speak(msg);
@@ -172,6 +175,7 @@
             if (overlayImage) {
                 clearInterval(animationInterval);
                 overlayImage.src = mascotFrames[0];
+                overlayImage.style.display = 'none';
             }
         }
 
@@ -204,17 +208,16 @@
 
             recognition.onresult = async function(event) {
                 const spokenText = event.results[0][0].transcript;
-                let responseText = '';
 
-                if (spokenText.toLowerCase().includes('where am i') || spokenText.toLowerCase().includes('where i am')) {
-                    responseText = `You are currently at ${currentLocationName}.`;
-                } else if (spokenText.toLowerCase().includes('nearest landmark')) {
-                    responseText = await fetchGeminiResponse('landmarks in Kolkata');
+                if (/where\s*am\s*i|where\s*i\s*am/i.test(spokenText)) {
+                    speak(`You are at ${currentLocationName}.`);
+                } else if (/nearest\s*landmark/i.test(spokenText)) {
+                    const geminiResponse = await fetchGeminiResponse('Tell me the nearest landmark in Kolkata.');
+                    speak(geminiResponse);
                 } else {
-                    responseText = await fetchGeminiResponse(spokenText);
+                    const geminiResponse = await fetchGeminiResponse(spokenText);
+                    speak(geminiResponse);
                 }
-
-                speak(responseText);
             };
 
             recognition.onerror = function(event) {
@@ -236,8 +239,8 @@
         const openCameraButton = document.getElementById('openCameraButton');
         const backToMapButton = document.getElementById('backToMapButton');
         const speakButton = document.getElementById('speakButton');
-        const scannerButton = document.getElementById('scannerButton');
         const stopButton = document.getElementById('stopButton');
+        const scannerButton = document.getElementById('scannerButton');
         const mapContainer = document.getElementById('map');
 
         openCameraButton.addEventListener('click', function() {
@@ -257,24 +260,39 @@
                 videoElement.id = 'videoElement';
                 videoElement.srcObject = stream;
                 videoElement.autoplay = true;
-                document.body.appendChild(videoElement);
 
+                let overlayImage = document.getElementById('overlayImage');
+                if (!overlayImage) {
+                    overlayImage = document.createElement('img');
+                    overlayImage.id = 'overlayImage';
+                    overlayImage.src = 'mascot.png';
+                    overlayImage.alt = 'Mascot';
+                    document.body.appendChild(overlayImage);
+                }
+
+                overlayImage.style.display = 'none';
+
+                document.body.appendChild(videoElement);
                 mapContainer.style.display = 'none';
-                backToMapButton.style.display = 'block';
                 openCameraButton.style.display = 'none';
-                speakButton.style.display = 'block';
+                backToMapButton.style.display = 'block';
                 scannerButton.style.display = 'block';
-                stopButton.style.display = 'block';
+
+                videoStream = stream;
             })
-            .catch(function(error) {
-                console.error('Error accessing camera:', error);
-                alert('Unable to access camera.');
+            .catch(function(err) {
+                console.error('Error accessing camera:', err);
             });
         });
 
         backToMapButton.addEventListener('click', function() {
+            if (videoStream) {
+                const tracks = videoStream.getTracks();
+                tracks.forEach(track => track.stop());
+                videoStream = null;
+            }
+
             if (videoElement) {
-                videoElement.srcObject.getTracks().forEach(track => track.stop());
                 document.body.removeChild(videoElement);
                 videoElement = null;
             }
@@ -282,39 +300,35 @@
             mapContainer.style.display = 'block';
             openCameraButton.style.display = 'block';
             backToMapButton.style.display = 'none';
-            speakButton.style.display = 'none';
             scannerButton.style.display = 'none';
-            stopButton.style.display = 'none';
+        });
+
+        scannerButton.addEventListener('click', async function() {
+            if (!videoElement || !model) {
+                alert('Camera or model not ready.');
+                return;
+            }
+
+            const predictions = await model.detect(videoElement);
+            if (predictions.length > 0) {
+                const detectedObject = predictions[0].class;
+                speak(`I see a ${detectedObject}`);
+            } else {
+                speak("No objects detected.");
+            }
         });
 
         speakButton.addEventListener('click', function() {
             if (recognition) {
                 recognition.start();
-                speakButton.style.display = 'none';
-                stopButton.style.display = 'block';
             }
         });
 
         stopButton.addEventListener('click', function() {
             if (window.speechSynthesis.speaking) {
                 window.speechSynthesis.cancel();
-                stopMascotAnimation();
                 stopButton.style.display = 'none';
                 speakButton.style.display = 'block';
-            }
-        });
-
-        scannerButton.addEventListener('click', async function() {
-            if (videoElement) {
-                const predictions = await model.detect(videoElement);
-                if (predictions.length > 0) {
-                    let detectedObjects = predictions.map(prediction => prediction.class).join(', ');
-                    speak(`Detected objects: ${detectedObjects}.`);
-                } else {
-                    speak('No objects detected.');
-                }
-            } else {
-                speak('Camera is not active.');
             }
         });
     </script>
